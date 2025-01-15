@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "327372824916",
+    "project_id": "elams-booking",
+    "storage_bucket": "elams-booking.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:327372824916:android:16a5fb37bba85f8cb8e8c1",
+        "android_client_info": {
+          "package_name": "elambookings.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvfhKD0ETXUPTi9aNPSpIKUJ49AogpVY8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
