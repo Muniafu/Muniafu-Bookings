@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "327372824916",
-    "project_id": "elams-booking",
-    "storage_bucket": "elams-booking.firebasestorage.app"
+    "project_number": "848175632202",
+    "project_id": "elam-muniafu",
+    "storage_bucket": "elam-muniafu.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:327372824916:android:16a5fb37bba85f8cb8e8c1",
+        "mobilesdk_app_id": "1:848175632202:android:ca08bb1c363b60b6cd3bb3",
         "android_client_info": {
-          "package_name": "elambookings.com"
+          "package_name": "com.example.muniafu"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBvfhKD0ETXUPTi9aNPSpIKUJ49AogpVY8"
+          "current_key": "AIzaSyAUVokyn3UAaDdg3aqPXynCePquteVJeeU"
         }
       ],
       "services": {
