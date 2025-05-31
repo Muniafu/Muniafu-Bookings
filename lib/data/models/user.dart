@@ -4,97 +4,112 @@ class User {
   final String id;
   final String name;
   final String email;
-  final String role; // 'admin', 'user', or other roles // Derived from role
-  final String? phone; // Optional field from first model
-  final DateTime? createdAt;
-  
+  final String role;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String? birthDate;
+  final String? location;
+  final String? phone;
+  final String? bio;
   
 
   User({
     required this.id,
-    required this.name,
+    this.name = '',
     required this.email,
-    required this.role,
+    this.role = 'user',
+    required this.createdAt,
+    required this.updatedAt,
+    this.birthDate,
+    this.location,
     this.phone,
-    this.createdAt,
+    this.bio,
   });
 
   // Getter to check admin status
-  bool get isAdmin => role.toLowerCase() == 'admin';
+  bool get isAdmin => role == 'admin';
 
-  // Factory constructor for JSON parsing
-  factory User.fromMap(Map<String, dynamic> json) {
-    return User(
-      id: json['id'] ?? '', // Null safety from second model
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      role: json['role'] ?? 'user', // Default role
-      phone: json['phone'],
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
-          : null,
-    );
-  }
-
-
-  // Alternative factory for Firestore (handles Timestamp)
-  factory User.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return User(
-      id: doc.id,
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      role: data['role'] ?? 'user',
-      phone: data['phone'],
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
-    );
-  }
-  // Convert from JSON (for API calls)
+  // Named constructor for JSON parsing (generic)
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] ?? '', // Null safety from second model
+      id: json['id'] ?? '',
       name: json['name'] ?? '',
       email: json['email'] ?? '',
-      role: json['role'] ?? 'user', // Default role
-      phone: json['phone'],
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
-          : null,
+      role: json['role'] ?? 'user',
+      createdAt: json['createdAt'] != null
+          ? (json['createdAt'] as Timestamp).toDate()
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? (json['updatedAt'] as Timestamp).toDate()
+          : DateTime.now(),
     );
   }
 
-  // Convert to Map (for Firestore)
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'email': email,
-      'role': role,
-      if (phone != null) 'phone': phone,
-      if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt!),
-    };
+  // Named constructor specifically for Firestore
+  factory User.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return User.fromJson({
+      ...data,
+      'id': doc.id,
+    });
   }
 
-  // Helper for copying with modified fields
+  // Convert to JSON for storage/serialization
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'email': email,
+        'role': role,
+        'createdAt': Timestamp.fromDate(createdAt),
+        'updatedAt': Timestamp.fromDate(updatedAt),
+      };
+
+  // CopyWith pattern for immutable updates
   User copyWith({
     String? id,
     String? name,
     String? email,
     String? role,
-    String? phone,
     DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return User(
       id: id ?? this.id,
       name: name ?? this.name,
       email: email ?? this.email,
       role: role ?? this.role,
-      phone: phone ?? this.phone,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  static Future<User?> fromJsonAsync(Map<String, dynamic> data) async {
-    if (data.isEmpty) return null;
-    return User.fromMap(data);
+  // Override toString for debugging
+  @override
+  String toString() {
+    return 'User(id: $id, name: $name, email: $email, role: $role, '
+        'createdAt: $createdAt, updatedAt: $updatedAt)';
+  }
+
+  // Equality comparison
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is User &&
+        other.id == id &&
+        other.name == name &&
+        other.email == email &&
+        other.role == role &&
+        other.createdAt == createdAt &&
+        other.updatedAt == updatedAt;
+  }
+
+  @override
+  int get hashCode {
+    return id.hashCode ^
+        name.hashCode ^
+        email.hashCode ^
+        role.hashCode ^
+        createdAt.hashCode ^
+        updatedAt.hashCode;
   }
 }
