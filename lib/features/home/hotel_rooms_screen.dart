@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'room_details_screen.dart';
 
 class HotelRoomsScreen extends StatelessWidget {
-  const HotelRoomsScreen({super.key});
+  final String? destination;
+
+  const HotelRoomsScreen({super.key, this.destination});
 
   // Sample room data
   final List<Map<String, dynamic>> rooms = const [
@@ -42,7 +44,7 @@ class HotelRoomsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Available Rooms"),
+        title: Text(destination ?? "Available Rooms"),
         backgroundColor: Colors.blueAccent,
       ),
       body: ListView.builder(

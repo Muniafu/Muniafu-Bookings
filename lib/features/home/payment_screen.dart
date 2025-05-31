@@ -7,12 +7,14 @@ class PaymentScreen extends StatefulWidget {
   final double amount;
   final String currency;
   final String bookingId;
+  final Map<String, dynamic>? bookingDetails;
 
   const PaymentScreen({
     super.key,
     required this.amount,
-    this.currency = 'USD',
+    required this.currency,
     required this.bookingId,
+    this.bookingDetails,
   });
 
   @override
