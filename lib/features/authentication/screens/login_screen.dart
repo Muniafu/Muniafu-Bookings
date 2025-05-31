@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:muniafu/providers/auth_provider.dart';
 import 'package:muniafu/app/core/widgets/background_widget.dart';
 import 'package:muniafu/app/core/widgets/button_widget.dart';
 import 'package:muniafu/app/core/widgets/logo_widget.dart';
 import 'package:muniafu/features/dashboard/dashboard_screen.dart';
-import 'package:muniafu/features/authentication/screens/forget_password_screen.dart';
-import 'package:muniafu/features/authentication/screens/signup_screen.dart';
-import 'package:muniafu/providers/auth_provider.dart';
+import './forget_password_screen.dart';
+import './signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +19,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _passwordVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _passwordVisible = false;
+  }
 
   @override
   void dispose() {
@@ -27,10 +34,38 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _handleLogin(BuildContext context) async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    final authProvider = context.read<AuthProvider>();
+    FocusScope.of(context).unfocus(); // Dismiss keyboard
+    
+    await authProvider.login(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
+
+    if (authProvider.error != null) {
+      // Show error in snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(authProvider.error!),
+          backgroundColor: Colors.red,
+        ),
+      );
+      // Clear error after showing
+      authProvider.clearError();
+    } else {
+      // Navigate to dashboard on success
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-
     return Scaffold(
       body: BackgroundWidget(
         child: Padding(
@@ -41,93 +76,152 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const LogoWidget(imagePath: './assets/images/onboarding2.png'),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 40),
+                  const LogoWidget(imagePath: './assets/images/onboarding.png'),
+                  const SizedBox(height: 30),
                   Text(
-                    'Login',
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    'Welcome Back',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                   ),
-                  const SizedBox(height: 24),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (val) => val != null && val.contains('@')
-                        ? null
-                        : 'Enter a valid email',
-                    onChanged: (val) => _emailController.text = val,
+                  const SizedBox(height: 10),
+                  Text(
+                    'Sign in to continue',
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
-                    ),
-                    obscureText: true,
-                    validator: (val) => val != null && val.length >= 6
-                        ? null
-                        : 'Password must be 6+ characters',
-                    onChanged: (val) => _passwordController.text = val,
-                  ),
-                  const SizedBox(height: 24),
-                  if (authProvider.isLoading)
-                    const CircularProgressIndicator(),
-                  if (!authProvider.isLoading)
-                    ButtonWidget(
-                      text: 'Login',
-                      onPressed: () async {
-                        if (_formKey.currentState!.validate()) {
-                          await authProvider.login(
-                            _emailController.text.trim(),
-                            _passwordController.text.trim(),
-                          );
-
-                          if (authProvider.error != null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(authProvider.error!)),
-                            );
-                          } else {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const DashboardScreen(),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                    ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ForgetPasswordScreen(),
-                      ),
-                    ),
-                    child: const Text('Forgot Password?'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const SignupScreen(),
-                      ),
-                    ),
-                    child: const Text(
-                      "Don't have an account? Sign up",
-                      style: TextStyle(color: Colors.red),
-                    ),
-                  ),
+                  const SizedBox(height: 30),
+                  _buildEmailField(),
+                  const SizedBox(height: 20),
+                  _buildPasswordField(),
+                  const SizedBox(height: 10),
+                  _buildForgotPassword(context),
+                  const SizedBox(height: 30),
+                  _buildLoginButton(context),
+                  const SizedBox(height: 20),
+                  _buildSignupOption(context),
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildEmailField() {
+    return TextFormField(
+      controller: _emailController,
+      decoration: InputDecoration(
+        labelText: 'Email',
+        prefixIcon: const Icon(Icons.email),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        filled: true,
+      ),
+      keyboardType: TextInputType.emailAddress,
+      textInputAction: TextInputAction.next,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your email';
+        }
+        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+          return 'Please enter a valid email';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPasswordField() {
+    return TextFormField(
+      controller: _passwordController,
+      decoration: InputDecoration(
+        labelText: 'Password',
+        prefixIcon: const Icon(Icons.lock),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _passwordVisible ? Icons.visibility : Icons.visibility_off,
+          ),
+          onPressed: () {
+            setState(() {
+              _passwordVisible = !_passwordVisible;
+            });
+          },
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        filled: true,
+      ),
+      obscureText: !_passwordVisible,
+      textInputAction: TextInputAction.done,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your password';
+        }
+        if (value.length < 6) {
+          return 'Password must be at least 6 characters';
+        }
+        return null;
+      },
+      onFieldSubmitted: (_) => _handleLogin(context),
+    );
+  }
+
+  Widget _buildForgotPassword(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ForgetPasswordScreen()),
+        ),
+        child: Text(
+          'Forgot Password?',
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginButton(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    
+    return ButtonWidget(
+      text: 'Login',
+      isLoading: authProvider.isLoading,
+      onPressed: () {
+        if (!authProvider.isLoading) {
+          _handleLogin(context);
+        }
+      },
+    );
+  }
+
+  Widget _buildSignupOption(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text("Don't have an account?"),
+        TextButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const SignupScreen()),
+          ),
+          child: Text(
+            'Sign up',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
