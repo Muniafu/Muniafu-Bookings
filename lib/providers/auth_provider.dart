@@ -7,7 +7,6 @@ class AuthProvider with ChangeNotifier {
   User? _user;
   bool _isLoading = false;
   String? _error;
-  bool _isAdmin = false;
 
   AuthProvider(this._authService);
 
@@ -15,101 +14,120 @@ class AuthProvider with ChangeNotifier {
   User? get user => _user;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get isAdmin => _isAdmin;
+  bool get isAdmin => _user?.role == 'admin';
   String? get userId => _user?.id;
 
-  Future<void> register(
-    String email,
-    String password, {
+  // Initialize authentication state
+  Future<void> initialize() async {
+    _setLoading(true);
+    try {
+      _user = await _authService.getCurrentUser();
+      _error = null;
+    } catch (e) {
+      _error = 'Failed to initialize session: ${e.toString()}';
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Handle registration
+  Future<void> register({
+    required String email,
+    required String password,
     required String name,
   }) async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      // 1. Register via AuthService
+    await _performAuthOperation(() async {
       await _authService.registerWithEmail(
         email: email,
         password: password,
         name: name,
-        role: 'user', // Default role
       );
-
-      // 2. Fetch user data after registration
-      _user = (await _authService.getCurrentUser());
-      _isAdmin = _user?.isAdmin == true;
-
-      // 3. Clear loading state
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      _error = e.toString();
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-
-  Future<void> login(String email, String password, {bool isAdminLogin = false}) async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      // 1. Authenticate with the auth service
-      final authResult = await _authService.loginWithEmail(email, password);
       
-      if (authResult != null) {
-        throw Exception(authResult);
-      }
-
-      // 2. Fetch user data
-      _user = (await _authService.getUser(email));
-      _isAdmin = isAdminLogin || _user?.isAdmin == true;
-
-      // 3. Clear loading state
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      _error = e.toString();
-      notifyListeners();
-      rethrow;
-    }
+      // Refresh user after registration
+      _user = await _authService.getCurrentUser();
+    });
   }
 
+  // Handle login
+  Future<void> login(String email, String password) async {
+    await _performAuthOperation(() async {
+      _user = await _authService.loginWithEmail(email, password);
+    });
+  }
+
+  // Handle logout
   Future<void> logout() async {
+    _setLoading(true);
     try {
       await _authService.logout();
       _user = null;
-      _isAdmin = false;
       _error = null;
-      notifyListeners();
     } catch (e) {
       _error = 'Logout failed: ${e.toString()}';
-      notifyListeners();
-      rethrow;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  Future<void> checkAuthStatus() async {
+  // Handle password reset
+  Future<void> sendPasswordResetEmail(String email) async {
+    _setLoading(true);
     try {
-      _isLoading = true;
-      notifyListeners();
-
-      _user = (await _authService.getCurrentUser());
-      _isAdmin = _user?.isAdmin == true;
-
-      _isLoading = false;
-      notifyListeners();
+      await _authService.sendPasswordResetEmail(email);
+      _error = null;
     } catch (e) {
-      _isLoading = false;
-      _error = e.toString();
-      notifyListeners();
+      _error = e is AuthException 
+          ? e.message 
+          : 'Password reset failed: ${e.toString()}';
+    } finally {
+      _setLoading(false);
     }
   }
 
-  sendPasswordResetEmail(String trim) {}
+  // Optional REST authentication methods
+  Future<void> restLogin(String email, String password) async {
+    await _performAuthOperation(() async {
+      _user = await _authService.restLogin(email, password);
+    });
+  }
+
+  Future<void> restSignup(String email, String password) async {
+    await _performAuthOperation(() async {
+      _user = await _authService.restSignup(email, password);
+    });
+  }
+
+  // Private helper methods ===============================================
+
+  // Unified authentication operation handler
+  Future<void> _performAuthOperation(Future<void> Function() operation) async {
+    _resetState();
+    try {
+      await operation();
+      _error = null;
+    } catch (e) {
+      _error = e is AuthException 
+          ? e.message 
+          : 'Authentication failed: ${e.toString()}';
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  void _resetState() {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+  }
+
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
+  }
+
+  // Clear error message
+  void clearError() {
+    _error = null;
+    notifyListeners();
+  }
 }
