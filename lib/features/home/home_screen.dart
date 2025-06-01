@@ -1,114 +1,168 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import '../../providers/hotel_provider.dart';
+import '../../data/models/hotel.dart';
 import 'hotel_rooms_screen.dart';
 import 'booking_screen.dart';
 import 'profile_screen.dart';
-import 'package:muniafu/app/core/widgets/rating_widget.dart';
-import 'package:muniafu/app/core/widgets/button_widget.dart';
+import '../../app/core/widgets/rating_widget.dart';
+import '../../app/core/widgets/button_widget.dart';
+import '../../data/models/room.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    // Load hotels on initial screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HotelProvider>().loadHotels();
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _handleSearch(String query) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (query.isNotEmpty) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HotelRoomsScreen(searchQuery: query),
+          ),
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    
+    final provider = context.watch<HotelProvider>();
+
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          // AppBar with search
-          SliverAppBar(
-            expandedHeight: 120.0,
-            floating: true,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              title: const Text('StayEase'),
-              background: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      colorScheme.primary,
-                      colorScheme.primary.withOpacity(0.8),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+      body: RefreshIndicator(
+        onRefresh: provider.loadHotels,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // AppBar with search
+            SliverAppBar(
+              expandedHeight: 120.0,
+              floating: true,
+              pinned: true,
+              flexibleSpace: FlexibleSpaceBar(
+                title: const Text('StayEase'),
+                background: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        colorScheme.primary,
+                        colorScheme.primaryContainer, // Use primaryContainer instead of withOpacity
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.notifications),
+                  onPressed: () {},
+                ),
+              ],
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(60),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _handleSearch,
+                    decoration: InputDecoration(
+                      hintText: 'Search destinations, hotels...',
+                      prefixIcon: const Icon(Icons.search),
+                      filled: true,
+                      fillColor: theme.cardColor,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                    ),
                   ),
                 ),
               ),
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.notifications),
-                onPressed: () {},
-              ),
-            ],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(60),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Search destinations, hotels...',
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    fillColor: theme.cardColor,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(30),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                  ),
-                ),
-              ),
+            
+            // Main content
+            SliverList(
+              delegate: SliverChildListDelegate([
+                const SizedBox(height: 20),
+                
+                // Welcome section
+                _buildWelcomeSection(theme),
+                const SizedBox(height: 20),
+                
+                // Featured destinations carousel
+                _buildDestinationsCarousel(context),
+                const SizedBox(height: 30),
+                
+                // Quick actions
+                _buildQuickActions(context),
+                const SizedBox(height: 30),
+                
+                // Featured hotels section
+                _buildFeaturedHotels(context, provider),
+                const SizedBox(height: 30),
+                
+                // Special offers section
+                _buildSpecialOffers(context),
+                const SizedBox(height: 30),
+              ]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWelcomeSection(ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Find Your Perfect Stay',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
             ),
           ),
-          
-          // Main content
-          SliverList(
-            delegate: SliverChildListDelegate([
-              const SizedBox(height: 20),
-              
-              // Welcome section
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Find Your Perfect Stay',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Discover amazing hotels at the best prices',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                ),
-              ),
-              
-              // Featured destinations carousel
-              _buildDestinationsCarousel(context),
-              const SizedBox(height: 30),
-              
-              // Quick actions
-              _buildQuickActions(context),
-              const SizedBox(height: 30),
-              
-              // Featured hotels section
-              _buildFeaturedHotels(context),
-              const SizedBox(height: 30),
-              
-              // Special offers section
-              _buildSpecialOffers(context),
-              const SizedBox(height: 30),
-            ]),
+          const SizedBox(height: 8),
+          Text(
+            'Discover amazing hotels at the best prices',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+            ),
           ),
         ],
       ),
@@ -132,19 +186,19 @@ class HomeScreen extends StatelessWidget {
             _buildDestinationCard(
               context,
               'Bali, Indonesia',
-              'assets/images/destination1.jpg',
+              'https://picsum.photos/600/400?destination=1',
               '72 Hotels',
             ),
             _buildDestinationCard(
               context,
               'Paris, France',
-              'assets/images/destination2.jpg',
+              'https://picsum.photos/600/400?destination=2',
               '58 Hotels',
             ),
             _buildDestinationCard(
               context,
               'Tokyo, Japan',
-              'assets/images/destination3.jpg',
+              'https://picsum.photos/600/400?destination=3',
               '64 Hotels',
             ),
           ],
@@ -164,13 +218,15 @@ class HomeScreen extends StatelessWidget {
   Widget _buildDestinationCard(
     BuildContext context, 
     String title, 
-    String imagePath, 
+    String imageUrl, 
     String subtitle,
   ) {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => HotelRoomsScreen(destination: title)),
+        MaterialPageRoute(
+          builder: (_) => HotelRoomsScreen(destination: title),
+        ),
       ),
       child: Card(
         elevation: 4,
@@ -182,11 +238,13 @@ class HomeScreen extends StatelessWidget {
           child: Stack(
             children: [
               // Background image
-              Image.asset(
-                imagePath,
+              Image.network(
+                imageUrl,
                 width: double.infinity,
                 height: double.infinity,
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => 
+                  Container(color: Colors.grey[200]),
               ),
               
               // Gradient overlay
@@ -310,99 +368,166 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturedHotels(BuildContext context) {
+  Widget _buildFeaturedHotels(BuildContext context, HotelProvider provider) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Featured Hotels",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          Row(
+            children: [
+              const Text(
+                "Featured Hotels",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HotelRoomsScreen()),
+                ),
+                child: const Text('See All'),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          Card(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Hotel image
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.asset(
-                          'assets/images/hotel1.jpg',
-                          width: 100,
-                          height: 100,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      
-                      // Hotel details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Sunset Paradise Resort",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              "Bali, Indonesia",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            const RatingWidget(rating: 4.7),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Text(
-                                  "\$120/night",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).colorScheme.primary,
-                                  ),
-                                ),
-                                const Spacer(),
-                                ButtonWidget.filled(
-                                  text: "View",
-                                  onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const HotelRoomsScreen()),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          
+          if (provider.isLoading)
+            const Center(child: CircularProgressIndicator()),
+          
+          if (provider.error != null)
+            Center(
+              child: Text(
+                provider.error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
-          ),
+          
+          if (!provider.isLoading && provider.hotels.isNotEmpty)
+            ...provider.hotels.take(3).map((hotel) => _buildHotelCard(context, hotel)),
         ],
       ),
     );
   }
 
+  Widget _buildHotelCard(BuildContext context, Hotel hotel) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => HotelRoomsScreen(hotel: hotel),
+          ),
+        ),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Hotel image
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: hotel.images.isNotEmpty
+                    ? Image.network(
+                        hotel.images.first,
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => 
+                          Container(
+                            width: 100,
+                            height: 100,
+                            color: Colors.grey[200],
+                            child: const Icon(Icons.hotel, size: 40),
+                          ),
+                      )
+                    : Container(
+                        width: 100,
+                        height: 100,
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.hotel, size: 40),
+                      ),
+              ),
+              const SizedBox(width: 16),
+              
+              // Hotel details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hotel.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hotel.location ?? '',
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (hotel.rating != null) 
+                      RatingWidget(rating: hotel.rating!),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Text(
+                          '\$${(hotel.pricePerNight ?? 0).toStringAsFixed(0)}/night',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const Spacer(),
+                        ButtonWidget.filled(
+                          text: "View",
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => HotelRoomsScreen(hotel: hotel),
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSpecialOffers(BuildContext context) {
+    // Create a dummy room for the special offer booking
+    final specialOfferRoom = Room(
+      id: 'special-offer',
+      hotelId: 'special-hotel',
+      type: 'Weekend Getaway Package',
+      name: 'Weekend Getaway Package',
+      pricePerNight: 199.00,
+      capacity: 2,
+      images: [],
+      amenities: ['Breakfast', 'Ocean View', 'Free WiFi'],
+      isAvailable: true,
+      discount: 0.3,
+      description: 'Enjoy 30% off for 2-night stays at participating resorts',
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -448,7 +573,9 @@ class HomeScreen extends StatelessWidget {
                         text: "Book Now",
                         onPressed: () => Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const BookingScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => BookingScreen(room: specialOfferRoom),
+                          ),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       ),

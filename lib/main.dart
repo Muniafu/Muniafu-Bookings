@@ -57,7 +57,7 @@ void main() async{
           prefs: prefs,
         ))),
         ChangeNotifierProvider(create: (_) => BookingProvider(BookingService())),
-        ChangeNotifierProvider(create: (_) => HotelProvider(HotelService())),
+        ChangeNotifierProvider(create: (_) => HotelProvider(HotelService.firestore())),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
       ],
       child: const MyApp()

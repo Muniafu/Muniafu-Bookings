@@ -1,80 +1,148 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import '../data/services/hotel_service.dart';
 import '../data/models/hotel.dart';
+import '../data/models/room.dart';
+import 'package:muniafu/data/services/hotel_service.dart';
 
-class HotelProvider with ChangeNotifier {
+class HotelProvider extends ChangeNotifier {
   final HotelService _hotelService;
-  List<Hotel> _hotels = [];
+  
+  // State properties
+  List<Hotel> _allHotels = [];
+  List<Hotel> _displayedHotels = [];
+  List<Room> _rooms = [];
+  String _searchQuery = '';
+  Timer? _debounce;
   bool _isLoading = false;
   String? _error;
 
-  HotelProvider(this._hotelService);
-
   // Getters
-  List<Hotel> get hotels => _hotels;
+  List<Hotel> get hotels => _displayedHotels;
+  List<Room> get rooms => _rooms;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  String get searchQuery => _searchQuery;
 
-  // Fetch all hotels
-  Future<void> fetchHotels() async {
+  HotelProvider(this._hotelService);
+
+  // Load all hotels with error handling
+  Future<void> loadHotels() async {
     try {
-      _isLoading = true;
+      _setLoading(true);
       _error = null;
-      notifyListeners();
-
-      _hotels = await _hotelService.fetchHotels();
+      
+      _allHotels = await _hotelService.fetchHotels();
+      _applySearchFilter();  // Re-apply existing search filter
     } catch (e) {
       _error = 'Failed to load hotels: ${e.toString()}';
-      // Fallback to demo data if API fails (remove in production)
-      _hotels = _getDemoHotels();
+      _allHotels = _getDemoHotels();
+      _applySearchFilter();
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      _setLoading(false);
     }
   }
 
-  // Add a new hotel
-  Future<void> addHotel(Hotel hotel) async {
-    try {
-      _isLoading = true;
-      notifyListeners();
+  // Search hotels with debounce and fallback
+  void searchHotels(String query) {
+    _searchQuery = query;
+    
+    // Cancel previous debounce timer
+    _debounce?.cancel();
+    
+    // Set up new debounce timer
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (_searchQuery.isEmpty) {
+        _applySearchFilter();
+        return;
+      }
 
-      final newHotel = await _hotelService.addHotel(hotel as Map<String, dynamic>);
-      _hotels.add(newHotel as Hotel);
+      try {
+        // Attempt remote search
+        _setLoading(true);
+        _hotelService.searchHotels(_searchQuery).then((results) {
+          _displayedHotels = results;
+          notifyListeners();
+        }).catchError((e) {
+          // Fallback to local search if remote fails
+          _applySearchFilter();
+        }).whenComplete(() => _setLoading(false));
+      } catch (e) {
+        // Fallback to local search on error
+        _applySearchFilter();
+        _setLoading(false);
+      }
+    });
+  }
+
+  // Load rooms for a specific hotel
+  Future<void> loadRooms(String hotelId) async {
+    try {
+      _setLoading(true);
+      _error = null;
+      
+      _rooms = await _hotelService.fetchRooms(hotelId);
     } catch (e) {
-      _error = 'Failed to add hotel: ${e.toString()}';
+      _error = 'Failed to load rooms: ${e.toString()}';
+      _rooms = [];
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Save hotel (create or update)
+  Future<void> saveHotel(Hotel hotel) async {
+    try {
+      _setLoading(true);
+      _error = null;
+      
+      if (hotel.id.isEmpty) {
+        // New hotel - add to Firestore
+        await _hotelService.addHotel(hotel.toJson());
+      } else {
+        // Existing hotel - update
+        await _hotelService.updateHotel(hotel);
+      }
+      
+      await loadHotels();  // Refresh hotel list
+    } catch (e) {
+      _error = 'Failed to save hotel: ${e.toString()}';
       rethrow;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      _setLoading(false);
     }
   }
 
   // Delete a hotel
   Future<void> deleteHotel(String hotelId) async {
     try {
-      _isLoading = true;
-      notifyListeners();
-
+      _setLoading(true);
+      _error = null;
+      
       await _hotelService.deleteHotel(hotelId);
-      _hotels.removeWhere((hotel) => hotel.id == hotelId);
+      await loadHotels();  // Refresh hotel list
     } catch (e) {
       _error = 'Failed to delete hotel: ${e.toString()}';
       rethrow;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      _setLoading(false);
     }
   }
 
-  // Search hotels by name
-  List<Hotel> searchHotels(String query) {
-    return _hotels.where((hotel) => 
-      hotel.name.toLowerCase().contains(query.toLowerCase())
-    ).toList();
+  // Apply search filter locally
+  void _applySearchFilter() {
+    if (_searchQuery.isEmpty) {
+      _displayedHotels = _allHotels;
+    } else {
+      _displayedHotels = _allHotels.where((hotel) => 
+        hotel.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+        (hotel.location.toLowerCase().contains(_searchQuery.toLowerCase())) ||
+        (hotel.description.toLowerCase().contains(_searchQuery.toLowerCase()))
+      ).toList();
+    }
+    notifyListeners();
   }
 
-  // Demo data fallback (from second implementation)
+  // Demo data fallback
   List<Hotel> _getDemoHotels() {
     return [
       Hotel(
@@ -83,6 +151,9 @@ class HotelProvider with ChangeNotifier {
         location: 'Beachfront',
         description: 'A beautiful paradise hotel by the beach.',
         images: ['https://example.com/hotel1.jpg'],
+        amenities: ['WiFi', 'Pool', 'Spa'],
+        rating: 4.5,
+        pricePerNight: 200,
       ),
       Hotel(
         id: '2',
@@ -90,35 +161,23 @@ class HotelProvider with ChangeNotifier {
         location: 'Cliffside',
         description: 'Resort with stunning ocean views.',
         images: ['https://example.com/hotel2.jpg'],
+        amenities: ['WiFi', 'Restaurant', 'Gym'],
+        rating: 4.0,
+        pricePerNight: 180,
       ),
-      Hotel(
-        id: '3',
-        name: 'Mountain Retreat',
-        location: 'Alpine',
-        description: 'A peaceful retreat in the mountains.',
-        images: ['https://example.com/hotel3.jpg'],
-      ),
-      Hotel(
-        id: '4',
-        name: 'City Lights Hotel',
-        location: 'Downtown',
-        description: 'Experience the city life at City Lights Hotel.',
-        images: ['https://example.com/hotel4.jpg'],
-      ),
-      Hotel(
-        id: '5',
-        name: 'Cozy Star Inn',
-        location: 'Suburbs',
-        description: 'A cozy inn for a relaxing stay.',
-        images: ['https://example.com/hotel5.jpg'],
-      ),
-      Hotel(
-        id: '6',
-        name: 'Hot Water Springs',
-        location: 'Valley',
-        description: 'Enjoy natural hot springs in the valley.',
-        images: ['https://example.com/hotel6.jpg'],
-      ),
+      // Add other demo hotels as needed
     ];
+  }
+
+  // Set loading state
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
   }
 }

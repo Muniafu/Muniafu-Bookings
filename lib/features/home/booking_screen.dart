@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:muniafu/data/models/room.dart';
 import 'payment_screen.dart';
 import 'package:muniafu/features/home/widgets/booking_card.dart';
 import 'package:muniafu/features/home/widgets/date_selector.dart';
 import 'package:muniafu/app/core/widgets/button_widget.dart';
 
 class BookingScreen extends StatefulWidget {
-  const BookingScreen({super.key});
+  final Room room;
+  
+  const BookingScreen({super.key, required this.room});
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
