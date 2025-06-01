@@ -12,7 +12,7 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Theme.of(context);
+    final theme = Theme.of(context);
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
 
@@ -76,7 +76,7 @@ class ProfileScreen extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 40,
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(25),
               child: user?.name.isNotEmpty == true
                   ? Text(
                       user!.name[0],
@@ -111,7 +111,7 @@ class ProfileScreen extends StatelessWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.star, color: Colors.amber, size: 20),
+                      const Icon(Icons.star, color: Colors.amber, size: 20),
                       const SizedBox(width: 4),
                       Text(
                         user?.role == 'admin' ? 'Admin' : 'Gold Member',
@@ -302,7 +302,7 @@ class ProfileScreen extends StatelessWidget {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withAlpha(25),
             shape: BoxShape.circle,
           ),
           padding: const EdgeInsets.all(12),
@@ -370,7 +370,7 @@ class ProfileScreen extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: Container(
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withAlpha(25),
           shape: BoxShape.circle,
         ),
         padding: const EdgeInsets.all(8),
@@ -482,11 +482,9 @@ class ProfileScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const PaymentScreen(
+        builder: (context) => PaymentScreen.mock(
           amount: 0.0,
-          bookingId: 'profile_management',
-          currency: 'USD',
-          bookingDetails: {},
+          onPaymentSuccess: () {}, // Dummy callback
         ),
       ),
     );

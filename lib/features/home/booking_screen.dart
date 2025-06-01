@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:muniafu/data/models/room.dart';
+import '../../data/models/booking.dart';
+import '../../data/models/room.dart';
+import '../../providers/booking_provider.dart';
 import 'payment_screen.dart';
-import 'package:muniafu/features/home/widgets/booking_card.dart';
+import '../../app/core/widgets/button_widget.dart';
 import 'package:muniafu/features/home/widgets/date_selector.dart';
-import 'package:muniafu/app/core/widgets/button_widget.dart';
 
 class BookingScreen extends StatefulWidget {
-  final Room room;
-  
-  const BookingScreen({super.key, required this.room});
+  final Room? room;
+
+  const BookingScreen({super.key, this.room});
 
   @override
   State<BookingScreen> createState() => _BookingScreenState();
 }
 
-class _BookingScreenState extends State<BookingScreen> with SingleTickerProviderStateMixin {
+class _BookingScreenState extends State<BookingScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -28,34 +31,22 @@ class _BookingScreenState extends State<BookingScreen> with SingleTickerProvider
   int _children = 0;
   int _rooms = 1;
 
-  // Sample booking data
-  final List<Map<String, dynamic>> _bookings = [
-    {
-      'id': '1',
-      'hotel': 'Sunset Paradise Resort',
-      'room': 'Deluxe Ocean View',
-      'checkIn': '2023-12-15',
-      'checkOut': '2023-12-20',
-      'status': 'Confirmed',
-      'image': 'assets/images/hotel1.jpg',
-      'price': 299.99,
-    },
-    {
-      'id': '2',
-      'hotel': 'Mountain View Lodge',
-      'room': 'Executive Suite',
-      'checkIn': '2024-01-10',
-      'checkOut': '2024-01-15',
-      'status': 'Pending',
-      'image': 'assets/images/hotel2.jpg',
-      'price': 429.99,
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    // Determine tab count based on context
+    final tabCount = widget.room != null ? 2 : 2;
+    _tabController = TabController(length: tabCount, vsync: this);
+    
+    // Pre-fill form if user data is available
+    _prefillUserData();
+  }
+
+  void _prefillUserData() {
+    // In a real app, you'd get this from user profile
+    _nameController.text = 'John Doe';
+    _emailController.text = 'john@example.com';
+    _phoneController.text = '+1234567890';
   }
 
   @override
@@ -75,16 +66,17 @@ class _BookingScreenState extends State<BookingScreen> with SingleTickerProvider
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       selectableDayPredicate: (DateTime date) {
-        // Disable past dates
         return date.isAfter(DateTime.now().subtract(const Duration(days: 1)));
       },
     );
-    
+
     if (picked != null) {
       setState(() {
         if (isCheckIn) {
           _checkInDate = picked;
-          if (_checkOutDate != null && _checkOutDate!.isBefore(picked.add(const Duration(days: 1)))) {
+          // Reset check-out if invalid
+          if (_checkOutDate != null && 
+              _checkOutDate!.isBefore(picked.add(const Duration(days: 1)))) {
             _checkOutDate = null;
           }
         } else {
@@ -96,12 +88,111 @@ class _BookingScreenState extends State<BookingScreen> with SingleTickerProvider
     }
   }
 
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final provider = Provider.of<BookingProvider>(context);
+    final hasRoomContext = widget.room != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(hasRoomContext ? 'Book Room' : 'My Bookings'),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: theme.colorScheme.primary,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: theme.colorScheme.primary,
+          tabs: hasRoomContext
+              ? const [
+                  Tab(icon: Icon(Icons.add), text: "New Booking"),
+                  Tab(icon: Icon(Icons.list), text: "My Bookings"),
+                ]
+              : const [
+                  Tab(text: "Active"),
+                  Tab(text: "Past"),
+                ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: hasRoomContext
+            ? [
+                _buildNewBookingForm(),
+                _buildUserBookings(provider),
+              ]
+            : [
+                _buildBookingList(provider.activeBookings),
+                _buildBookingList(provider.pastBookings),
+              ],
+      ),
+    );
+  }
+
   Widget _buildNewBookingForm() {
+    final theme = Theme.of(context);
+    final room = widget.room!;
+
     return Form(
       key: _formKey,
       child: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // Room info card
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  room.images.isNotEmpty
+                      ? Image.network(
+                          room.images.first,
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          width: 80,
+                          height: 80,
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.hotel, size: 40),
+                        ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          room.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          room.type,
+                          style: TextStyle(
+                            color: theme.textTheme.bodySmall?.color,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '\$${room.pricePerNight.toStringAsFixed(2)}/night',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // Personal Info Section
           const Text(
             'Personal Information',
@@ -234,7 +325,7 @@ class _BookingScreenState extends State<BookingScreen> with SingleTickerProvider
           // Submit Button
           ButtonWidget.filled(
             text: "Proceed to Payment",
-            onPressed: _submitBooking,
+            onPressed: () => _submitBooking(room),
             isFullWidth: true,
           ),
           const SizedBox(height: 20),
@@ -284,7 +375,7 @@ class _BookingScreenState extends State<BookingScreen> with SingleTickerProvider
     );
   }
 
-  void _submitBooking() {
+  void _submitBooking(Room room) {
     if (_formKey.currentState!.validate()) {
       if (_checkInDate == null || _checkOutDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -306,28 +397,43 @@ class _BookingScreenState extends State<BookingScreen> with SingleTickerProvider
         return;
       }
       
-      // Calculate total price based on duration and room count
+      // Calculate total price
       final duration = _checkOutDate!.difference(_checkInDate!).inDays;
-      const nightlyRate = 149.99; // Sample rate - would come from hotel selection
-      final totalPrice = (nightlyRate * _rooms * duration).toStringAsFixed(2);
+      final totalPrice = room.pricePerNight * _rooms * duration;
+      
+      // Create booking model
+      final booking = Booking(
+        id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        userId: 'current_user_id', // Would come from auth
+        hotelId: room.hotelId,
+        hotelName: 'Hotel Name', // Would come from hotel service
+        roomId: room.id,
+        checkInDate: _checkInDate!,
+        checkOutDate: _checkOutDate!,
+        numberOfGuests: _adults + _children, // Fixed: Added required parameter
+        totalPrice: totalPrice,
+        status: BookingStatus.confirmed,
+        createdAt: DateTime.now(),
+        specialRequests: _requestsController.text.isNotEmpty
+            ? [_requestsController.text]
+            : null,
+      );
       
       Navigator.push(
         context, 
         MaterialPageRoute(
-          builder: (_) => PaymentScreen(
-            amount: double.parse(totalPrice),
-            bookingId: 'BOOK_${DateTime.now().millisecondsSinceEpoch}',
+          builder: (_) => PaymentScreen.real( // Fixed: Use named constructor
+            amount: totalPrice,
             currency: 'USD',
-            bookingDetails: {
+            bookingId: booking.id,
+            booking: booking,
+            room: room,
+            guestInfo: {
               'name': _nameController.text,
               'email': _emailController.text,
               'phone': _phoneController.text,
-              'checkIn': DateFormat('yyyy-MM-dd').format(_checkInDate!),
-              'checkOut': DateFormat('yyyy-MM-dd').format(_checkOutDate!),
               'adults': _adults,
               'children': _children,
-              'rooms': _rooms,
-              'requests': _requestsController.text,
             },
           ),
         ),
@@ -335,96 +441,192 @@ class _BookingScreenState extends State<BookingScreen> with SingleTickerProvider
     }
   }
 
-  Widget _buildBookingList() {
-    if (_bookings.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.hotel, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text(
-              'No Bookings Yet',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "You haven't made any bookings yet",
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            ButtonWidget.filled(
-              text: 'Book Now',
-              onPressed: () => _tabController.animateTo(0),
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-            ),
-          ],
-        ),
-      );
-    }
+  Widget _buildUserBookings(BookingProvider provider) {
+    return Consumer<BookingProvider>(
+      builder: (context, provider, _) {
+        if (provider.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: _bookings.length,
-      itemBuilder: (context, index) {
-        final booking = _bookings[index];
-        return BookingCard(
-          booking: booking,
-          onTap: () => _showBookingDetails(booking),
+        if (provider.error != null) {
+          return Center(child: Text(provider.error!));
+        }
+
+        if (provider.bookings.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.hotel, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'No Bookings Yet',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "You haven't made any bookings yet",
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
+                ButtonWidget.filled(
+                  text: 'Book Now',
+                  onPressed: () => _tabController.animateTo(0),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16.0),
+          itemCount: provider.bookings.length,
+          itemBuilder: (context, index) => BookingCard(
+            booking: provider.bookings[index],
+            onTap: () => _showBookingDetails(context, provider.bookings[index]),
+          ),
         );
       },
     );
   }
 
-  void _showBookingDetails(Map<String, dynamic> booking) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return BookingDetailsBottomSheet(booking: booking);
-      },
+  Widget _buildBookingList(List<Booking> bookings) {
+    if (bookings.isEmpty) {
+      return const Center(child: Text('No bookings found.'));
+    }
+
+    return ListView.builder(
+      itemCount: bookings.length,
+      itemBuilder: (_, i) => BookingCard(
+        booking: bookings[i],
+        onTap: () => _showBookingDetails(context, bookings[i]),
+      ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Bookings"),
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Theme.of(context).colorScheme.primary,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Theme.of(context).colorScheme.primary,
-          tabs: const [
-            Tab(icon: Icon(Icons.add), text: "New Booking"),
-            Tab(icon: Icon(Icons.list), text: "My Bookings"),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildNewBookingForm(),
-          _buildBookingList(),
-        ],
-      ),
+  void _showBookingDetails(BuildContext context, Booking booking) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => BookingDetailsBottomSheet(booking: booking),
     );
   }
 }
 
-class BookingDetailsBottomSheet extends StatelessWidget {
-  final Map<String, dynamic> booking;
-  
-  const BookingDetailsBottomSheet({
-    super.key,
-    required this.booking,
-  });
-  
+class BookingCard extends StatelessWidget {
+  final Booking booking;
+  final VoidCallback onTap;
+
+  const BookingCard({super.key, required this.booking, required this.onTap});
+
   @override
   Widget build(BuildContext context) {
-    Theme.of(context);
-    
+    final theme = Theme.of(context);
+    final duration = booking.checkOutDate.difference(booking.checkInDate).inDays;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Placeholder image
+              Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.hotel, size: 40),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      booking.hotelName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${DateFormat('MMM dd, yyyy').format(booking.checkInDate)} - '
+                      '${DateFormat('MMM dd, yyyy').format(booking.checkOutDate)}',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Chip(
+                          label: Text(
+                            booking.status.name.toUpperCase(),
+                            style: TextStyle(
+                              color: _getStatusColor(booking.status),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          backgroundColor: _getStatusColor(booking.status).withOpacity(0.1),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '\$${booking.totalPrice.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$duration ${duration == 1 ? 'night' : 'nights'} · ${booking.specialRequests?.length ?? 0} requests',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getStatusColor(BookingStatus status) {
+    switch (status) {
+      case BookingStatus.confirmed:
+        return Colors.green;
+      case BookingStatus.cancelled:
+        return Colors.red;
+      case BookingStatus.pending:
+        return Colors.orange;
+      case BookingStatus.completed:
+        return Colors.blue;
+    }
+  }
+}
+
+class BookingDetailsBottomSheet extends StatelessWidget {
+  final Booking booking;
+
+  const BookingDetailsBottomSheet({super.key, required this.booking});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final duration = booking.checkOutDate.difference(booking.checkInDate).inDays;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -445,14 +647,15 @@ class BookingDetailsBottomSheet extends StatelessWidget {
           
           Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  booking['image'] ?? 'assets/images/hotel_placeholder.jpg',
-                  width: 100,
-                  height: 100,
-                  fit: BoxFit.cover,
+              // Placeholder image
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
+                child: const Icon(Icons.hotel, size: 40),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -460,7 +663,7 @@ class BookingDetailsBottomSheet extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      booking['hotel'] ?? 'Unknown Hotel',
+                      booking.hotelName,
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -468,7 +671,7 @@ class BookingDetailsBottomSheet extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      booking['room'] ?? 'Standard Room',
+                      'Room ID: ${booking.roomId}',
                       style: const TextStyle(
                         fontSize: 16,
                         color: Colors.grey,
@@ -477,16 +680,12 @@ class BookingDetailsBottomSheet extends StatelessWidget {
                     const SizedBox(height: 8),
                     Chip(
                       label: Text(
-                        booking['status'] ?? 'Unknown',
+                        booking.status.name.toUpperCase(),
                         style: TextStyle(
-                          color: booking['status'] == 'Confirmed'
-                              ? Colors.green
-                              : Colors.orange,
+                          color: _getStatusColor(booking.status),
                         ),
                       ),
-                      backgroundColor: booking['status'] == 'Confirmed'
-                          ? Colors.green[50]
-                          : Colors.orange[50],
+                      backgroundColor: _getStatusColor(booking.status).withOpacity(0.1),
                     ),
                   ],
                 ),
@@ -507,26 +706,29 @@ class BookingDetailsBottomSheet extends StatelessWidget {
           _buildDetailRow(
             icon: Icons.calendar_today,
             label: 'Check-In',
-            value: booking['checkIn'] ?? 'N/A',
+            value: DateFormat('MMM dd, yyyy').format(booking.checkInDate),
           ),
           _buildDetailRow(
             icon: Icons.calendar_today,
             label: 'Check-Out',
-            value: booking['checkOut'] ?? 'N/A',
+            value: DateFormat('MMM dd, yyyy').format(booking.checkOutDate),
           ),
           _buildDetailRow(
-            icon: Icons.people,
+            icon: Icons.nights_stay,
             label: 'Duration',
-            value: _calculateDuration(
-              booking['checkIn'] ?? '',
-              booking['checkOut'] ?? '',
-            ),
+            value: '$duration ${duration == 1 ? 'night' : 'nights'}',
           ),
           _buildDetailRow(
             icon: Icons.attach_money,
             label: 'Total Price',
-            value: '\$${booking['price']?.toStringAsFixed(2) ?? '0.00'}',
+            value: '\$${booking.totalPrice.toStringAsFixed(2)}',
           ),
+          if (booking.specialRequests != null && booking.specialRequests!.isNotEmpty)
+            _buildDetailRow(
+              icon: Icons.note,
+              label: 'Requests',
+              value: booking.specialRequests!.join(', '),
+            ),
           const SizedBox(height: 24),
           
           const Text(
@@ -553,7 +755,7 @@ class BookingDetailsBottomSheet extends StatelessWidget {
               Expanded(
                 child: ButtonWidget.filled(
                   text: 'Cancel',
-                  onPressed: () => _showCancelConfirmation(context),
+                  onPressed: () => _showCancelConfirmation(context, booking),
                   backgroundColor: Colors.redAccent,
                 ),
               ),
@@ -581,44 +783,69 @@ class BookingDetailsBottomSheet extends StatelessWidget {
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
           const Spacer(),
-          Text(value),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  String _calculateDuration(String checkIn, String checkOut) {
-    try {
-      final start = DateFormat('yyyy-MM-dd').parse(checkIn);
-      final end = DateFormat('yyyy-MM-dd').parse(checkOut);
-      final duration = end.difference(start).inDays;
-      return '$duration ${duration == 1 ? 'night' : 'nights'}';
-    } catch (e) {
-      return 'N/A';
+  Color _getStatusColor(BookingStatus status) {
+    switch (status) {
+      case BookingStatus.confirmed:
+        return Colors.green;
+      case BookingStatus.cancelled:
+        return Colors.red;
+      case BookingStatus.pending:
+        return Colors.orange;
+      case BookingStatus.completed:
+        return Colors.blue;
     }
   }
 
-  void _showCancelConfirmation(BuildContext context) {
+  void _showCancelConfirmation(BuildContext context, Booking booking) {
+    final provider = Provider.of<BookingProvider>(context, listen: false);
+    final parentContext = context;
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Cancel Booking'),
         content: const Text('Are you sure you want to cancel this booking?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('No'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context); // Close confirmation
-              Navigator.pop(context); // Close details sheet
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Booking has been cancelled'),
-                  backgroundColor: Colors.red,
-                ),
-              );
+            onPressed: () async {
+              try {
+                await provider.cancelBooking(booking.id);
+                if (parentContext.mounted) {
+                  Navigator.pop(dialogContext);
+                  Navigator.pop(parentContext);
+                  ScaffoldMessenger.of(parentContext).showSnackBar(
+                    const SnackBar(
+                      content: Text('Booking has been cancelled'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (dialogContext.mounted) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to cancel: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Yes, Cancel'),
           ),
