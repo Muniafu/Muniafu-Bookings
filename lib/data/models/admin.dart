@@ -4,85 +4,41 @@ class Admin {
   final String id;
   final String name;
   final String email;
-  final List<String> managedHotels; // From AdminModel
-  final List<String> permissions; // New field for role permissions
-  final DateTime? createdAt; // New field for tracking
-  final bool isSuperAdmin; // New field for admin hierarchy
+  final List<String> managedHotels;
+  final List<String> permissions;
+  final DateTime? createdAt;
+  final bool isSuperAdmin;
 
   Admin({
     required this.id,
     required this.name,
     required this.email,
-    this.managedHotels = const [], // Default empty list
-    this.permissions = const [], // Default empty list
+    this.managedHotels = const [],
+    this.permissions = const [],
     this.createdAt,
     this.isSuperAdmin = false,
   });
 
-  // Check if admin manages a specific hotel (from AdminModel)
-  bool managesHotel(String hotelId) => isSuperAdmin || managedHotels.contains(hotelId);
+  bool managesHotel(String hotelId) => 
+      isSuperAdmin || managedHotels.contains(hotelId);
 
-  // Check if admin has specific permission
   bool hasPermission(String permission) => 
       isSuperAdmin || permissions.contains(permission);
 
-  // Factory constructor for JSON parsing (API responses)
-  factory Admin.fromJson(Map<String, dynamic> json) {
-    return Admin(
-      id: json['id'] ?? '',
-      name: json['name'] ?? '',
-      email: json['email'] ?? '',
-      managedHotels: List<String>.from(json['managedHotels'] ?? []),
-      permissions: List<String>.from(json['permissions'] ?? []),
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
-          : null,
-      isSuperAdmin: json['isSuperAdmin'] ?? false,
-    );
-  }
+  factory Admin.fromJson(Map<String, dynamic> json) => _parseAdminData(json);
 
-  // Factory constructor for Firestore documents
   factory Admin.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    return Admin(
-      id: doc.id, // Use document ID from Firestore
-      name: data['name'] ?? '',
-      email: data['email'] ?? '',
-      managedHotels: List<String>.from(data['managedHotels'] ?? []),
-      permissions: List<String>.from(data['permissions'] ?? []),
-      createdAt: data['createdAt']?.toDate(),
-      isSuperAdmin: data['isSuperAdmin'] ?? false,
-    );
+    return _parseAdminData(data).copyWith(id: doc.id);
   }
 
-  // Convert to JSON (for API requests)
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'email': email,
-      if (managedHotels.isNotEmpty) 'managedHotels': managedHotels,
-      if (permissions.isNotEmpty) 'permissions': permissions,
-      if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
-      if (isSuperAdmin) 'isSuperAdmin': isSuperAdmin,
-    };
-  }
+  Map<String, dynamic> toJson() => _toDataMap();
 
-  // Convert to Map (for Firestore)
-  Map<String, dynamic> toFirestore() {
-    return {
-      'name': name,
-      'email': email,
-      'managedHotels': managedHotels,
-      'permissions': permissions,
-      'createdAt': createdAt != null 
-          ? Timestamp.fromDate(createdAt!) 
-          : FieldValue.serverTimestamp(),
-      'isSuperAdmin': isSuperAdmin,
-    };
-  }
+  Map<String, dynamic> toFirestore() => _toDataMap()
+    ..['createdAt'] = createdAt != null 
+        ? Timestamp.fromDate(createdAt!) 
+        : FieldValue.serverTimestamp();
 
-  // Copy with method for immutable updates
   Admin copyWith({
     String? id,
     String? name,
@@ -100,6 +56,87 @@ class Admin {
       permissions: permissions ?? this.permissions,
       createdAt: createdAt ?? this.createdAt,
       isSuperAdmin: isSuperAdmin ?? this.isSuperAdmin,
+    );
+  }
+
+  // Centralized data parser (DRY)
+  static Admin _parseAdminData(Map<String, dynamic> data) {
+    return Admin(
+      id: data['id'] ?? '',
+      name: data['name'] ?? '',
+      email: data['email'] ?? '',
+      managedHotels: List<String>.from(data['managedHotels'] ?? []),
+      permissions: List<String>.from(data['permissions'] ?? []),
+      createdAt: data['createdAt'] is Timestamp 
+          ? (data['createdAt'] as Timestamp).toDate()
+          : data['createdAt'] != null 
+            ? DateTime.parse(data['createdAt'])
+            : null,
+      isSuperAdmin: data['isSuperAdmin'] ?? false,
+    );
+  }
+
+  // Centralized data mapper (DRY)
+  Map<String, dynamic> _toDataMap() {
+    return {
+      'name': name,
+      'email': email,
+      'managedHotels': managedHotels,
+      'permissions': permissions,
+      'isSuperAdmin': isSuperAdmin,
+      if (createdAt != null) 'createdAt': createdAt!,
+    };
+  }
+}
+
+class AdminAction {
+  final String id;
+  final String title;
+  final String description;
+
+  AdminAction({
+    required this.id,
+    required this.title,
+    required this.description,
+  });
+
+  // Unified JSON parser
+  factory AdminAction.fromJson(Map<String, dynamic> json) {
+    return AdminAction(
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+    );
+  }
+
+  // Unified Firestore parser
+  factory AdminAction.fromFirestore(DocumentSnapshot doc) {
+    return AdminAction(
+      id: doc.id,
+      title: doc.get('title') ?? '',
+      description: doc.get('description') ?? '',
+    );
+  }
+
+  // Centralized toMap method (DRY)
+  Map<String, dynamic> toMap() => {
+    'title': title,
+    'description': description,
+  };
+
+  // Reusable conversion methods
+  Map<String, dynamic> toJson() => toMap();
+  Map<String, dynamic> toFirestore() => toMap();
+
+  AdminAction copyWith({
+    String? id,
+    String? title,
+    String? description,
+  }) {
+    return AdminAction(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
     );
   }
 }

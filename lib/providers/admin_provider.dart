@@ -3,114 +3,104 @@ import '../data/services/admin_service.dart';
 import '../data/models/admin.dart';
 
 class AdminProvider with ChangeNotifier {
-  final AdminService _adminService;
+  final AdminService _service;
+  
+  // State management
   Admin? _admin;
+  List<Map<String, dynamic>> _bookings = [];
+  List<Map<String, dynamic>> _hotels = [];
   List<String> _payments = [];
   bool _isLoading = false;
   String? _error;
 
-  AdminProvider(this._adminService);
+  AdminProvider(this._service);
 
   // Getters
   Admin? get admin => _admin;
-  List<String> get payments => List.unmodifiable(_payments); // Return unmodifiable list
+  List<Map<String, dynamic>> get bookings => List.unmodifiable(_bookings);
+  List<Map<String, dynamic>> get hotels => List.unmodifiable(_hotels);
+  List<String> get payments => List.unmodifiable(_payments);
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Fetch admin details
-  Future<void> fetchAdmin(String adminId) async {
+  // Centralized state handler
+  Future<void> _handleOperation(Future<void> Function() operation) async {
     try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      _admin = await _adminService.getAdmin(adminId); // Changed from getAdminById to getAdmin
+      _setLoading(true);
+      await operation();
     } catch (e) {
-      _error = 'Failed to load admin data: ${e.toString()}';
+      _setError('Operation failed: ${e.toString()}');
       rethrow;
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      _setLoading(false);
     }
   }
 
-  // Check if admin can manage a specific hotel
-  bool canManageHotel(String hotelId) { // Changed from async to sync since we have the data locally
-    if (_admin == null) {
-      return false;
-    }
-    return _admin!.managesHotel(hotelId);
-  }
-
-  Future<void> updatePermissions(List<String> newPermissions) async {
-  if (_admin == null) return;
-  
-  try {
-    _isLoading = true;
+  void _setLoading(bool state) {
+    _isLoading = state;
     notifyListeners();
+  }
+
+  void _setError(String message) {
+    _error = message;
+    notifyListeners();
+  }
+
+  // Core operations
+  Future<void> fetchAdmin(String adminId) => _handleOperation(() async {
+    _admin = await _service.getAdmin(adminId);
+  });
+
+  Future<void> loadDashboardData() => _handleOperation(() async {
+    if (_admin == null) return;
     
-    await _adminService.updateAdminPermissions(
+    final results = await Future.wait([
+      _service.getAllBookings(),
+      _service.getHotelListings(),
+      _service.fetchPayments(),
+    ]);
+    
+    _bookings = results[0] as List<Map<String, dynamic>>;
+    _hotels = results[1] as List<Map<String, dynamic>>;
+    _payments = results[2] as List<String>;
+  });
+
+  Future<void> approveRoom(String roomId) => _handleOperation(() async {
+    await _service.approveRoom(roomId);
+    await _refreshHotels();
+  });
+
+  Future<void> rejectRoom(String roomId) => _handleOperation(() async {
+    await _service.rejectRoom(roomId);
+    await _refreshHotels();
+  });
+
+  Future<void> updatePermissions(List<String> newPermissions) => _handleOperation(() async {
+    if (_admin == null) return;
+    
+    await _service.updateAdminPermissions(
       adminId: _admin!.id,
       managedHotels: newPermissions,
     );
     
     _admin = _admin!.copyWith(permissions: newPermissions);
-  } catch (e) {
-    _error = 'Failed to update permissions: ${e.toString()}';
-    rethrow;
-  } finally {
-    _isLoading = false;
+  });
+
+  Future<void> addPayment(String payment) => _handleOperation(() async {
+    await _service.addPayment(payment);
+    _payments = [..._payments, payment];
+  });
+
+  // Helper methods
+  bool canManageHotel(String hotelId) {
+    return _admin != null && _admin!.managesHotel(hotelId);
+  }
+
+  Future<void> _refreshHotels() async {
+    _hotels = await _service.getHotelListings();
     notifyListeners();
   }
-}
 
-  // Fetch payments
-  Future<void> fetchPayments() async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      // First try to fetch from service
-      _payments = await _adminService.fetchPayments();
-      
-      // Fallback to demo data if empty (for development)
-      if (_payments.isEmpty) {
-        _payments = _getDemoPayments();
-      }
-    } catch (e) {
-      _error = 'Failed to load payments: ${e.toString()}';
-      _payments = _getDemoPayments(); // Fallback
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // Add a payment
-  Future<void> addPayment(String payment) async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      await _adminService.addPayment(payment);
-      _payments = [..._payments, payment]; // Create new list instead of modifying
-    } catch (e) {
-      _error = 'Failed to add payment: ${e.toString()}';
-      rethrow;
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // Demo payments data
-  List<String> _getDemoPayments() {
-    return ['Payment 1', 'Payment 2', 'Payment 3'];
-  }
-
-  // Clear error
   void clearError() {
     _error = null;
     notifyListeners();
