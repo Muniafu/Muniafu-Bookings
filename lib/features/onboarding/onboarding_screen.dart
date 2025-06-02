@@ -20,7 +20,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     Onboarding(
       title: 'Find Hotels',
       description: 'Discover hotels at best rates with ease.',
-      imagePath: 'assets/images/onboarding1.png',
+      imagePath: 'assets/images/onboarding.png',
       showSkipButton: true,
       durationSeconds: 5,
     ),
