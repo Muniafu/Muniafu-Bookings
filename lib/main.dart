@@ -6,6 +6,7 @@ import 'package:muniafu/data/services/admin_service.dart';
 import 'package:muniafu/data/services/auth_service.dart';
 import 'package:muniafu/data/services/booking_service.dart';
 import 'package:muniafu/data/services/hotel_service.dart';
+import 'package:muniafu/data/services/user_service.dart';
 import 'package:muniafu/features/home/hotel_rooms_screen.dart';
 import 'package:muniafu/features/home/profile_screen.dart';
 import 'package:muniafu/firebase_options.dart';
@@ -27,6 +28,7 @@ import 'package:muniafu/providers/auth_provider.dart';
 import 'package:muniafu/providers/booking_provider.dart';
 import 'package:muniafu/providers/hotel_provider.dart';
 import 'package:muniafu/providers/navigation_provider.dart';
+import 'package:muniafu/providers/user_provider.dart';
 
 // Import screens
 import 'package:muniafu/features/authentication/screens/login_screen.dart';
@@ -46,6 +48,7 @@ void main() async{
   );
 
   final SharedPreferences prefs = await SharedPreferences.getInstance();
+  final firestore = FirebaseFirestore.instance;
 
   runApp(
     MultiProvider(
@@ -53,12 +56,13 @@ void main() async{
         ChangeNotifierProvider(create: (_) => AdminProvider(AdminService())),
         ChangeNotifierProvider(create: (_) => AuthProvider(AuthService(
           firebaseAuth: firebase_auth.FirebaseAuth.instance,
-          firestore: FirebaseFirestore.instance,
+          firestore: firestore,
           prefs: prefs,
         ))),
         ChangeNotifierProvider(create: (_) => BookingProvider(BookingService.firestore())),
         ChangeNotifierProvider(create: (_) => HotelProvider(HotelService.firestore())),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
+        ChangeNotifierProvider(create: (context) => UserProvider(UserService.firestore())),
       ],
       child: const MyApp()
     ),
