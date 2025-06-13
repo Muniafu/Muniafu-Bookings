@@ -142,10 +142,31 @@ class AuthService {
 
   Future<User> getUser(String uid) async {
     try {
-      final userDoc = await _userCollection.doc(uid).get();
+      final userDoc = await _userCollection.doc(uid).get(
+
+        // Enable offline persistence
+        const GetOptions(source: Source.serverAndCache)
+      );
+      
       if (!userDoc.exists) throw AuthException('User not found', 'user-not-found');
       return User.fromFirestore(userDoc);
-    } catch (e) {
+    } on FirebaseException catch (e) {
+      if (e.code == 'unavailable') {
+
+        // Try to get cached data
+        final cachedDoc = await _userCollection.doc(uid).get(
+          const GetOptions(source: Source.cache)
+        );
+
+        if (cachedDoc.exists) {
+          return User.fromFirestore(cachedDoc);
+        }
+
+        throw AuthException(
+          'Network unavailable and no cached data found',
+          'network-unavailable',
+        );
+      }
       throw AuthException('Failed to fetch user: ${e.toString()}');
     }
   }

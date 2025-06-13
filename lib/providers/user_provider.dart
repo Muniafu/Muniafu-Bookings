@@ -177,6 +177,12 @@ class UserProvider with ChangeNotifier {
       await fetchProfile(_user!.id);
     }
   }
+  
+  // Set current user (call this after login)
+  void setCurrentUser(User user) {
+    _user = user;
+    notifyListeners();
+  }
 
   // Logout/Clear user data
   void logout() {
