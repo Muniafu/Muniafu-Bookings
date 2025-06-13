@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../../providers/hotel_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../data/models/hotel.dart';
 import 'hotel_rooms_screen.dart';
 import 'booking_screen.dart';
@@ -603,10 +604,15 @@ class _HomeScreenState extends State<HomeScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
             ),
             trailing: const Icon(Icons.arrow_forward),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
+            onTap: () {              
+              // Navigate to ProfileScreen with provider
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ProfileScreen(),
+                ),
+              );
+            },
           ),
         ],
       ),

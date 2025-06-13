@@ -100,7 +100,7 @@ class _SignupScreenState extends State<SignupScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 40),
-                  const LogoWidget(imagePath: './assets/images/onboarding.png'),
+                  const LogoWidget(imagePath: './assets/images/signup.png'),
                   const SizedBox(height: 30),
                   Text(
                     'Create Account',

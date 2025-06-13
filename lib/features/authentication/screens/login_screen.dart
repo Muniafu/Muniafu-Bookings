@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 40),
-                  const LogoWidget(imagePath: './assets/images/onboarding.png'),
+                  const LogoWidget(imagePath: './assets/images/login.png'),
                   const SizedBox(height: 30),
                   Text(
                     'Welcome Back',

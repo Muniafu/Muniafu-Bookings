@@ -74,7 +74,7 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 40),
-                  const LogoWidget(imagePath: './assets/images/onboarding.png'),
+                  const LogoWidget(imagePath: './assets/images/forget.png'),
                   const SizedBox(height: 30),
                   Text(
                     _isSuccess ? 'Check Your Email' : 'Reset Password',
