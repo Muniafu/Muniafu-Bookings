@@ -10,8 +10,10 @@ import 'package:muniafu/data/services/user_service.dart';
 import 'package:muniafu/features/home/hotel_rooms_screen.dart';
 import 'package:muniafu/features/home/profile_screen.dart';
 import 'package:muniafu/firebase_options.dart';
+import 'package:muniafu/providers/payment_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+//import 'package:flutter_stripe/flutter_stripe.dart';
 
 // Import App Theme
 //import 'package:muniafu/app/config/app_theme.dart';
@@ -40,9 +42,12 @@ import 'package:muniafu/features/home/home_screen.dart';
 import 'package:muniafu/features/onboarding/onboarding_screen.dart';
 import 'package:muniafu/features/search/search_screen.dart';
 
+//import 'package:muniafu/app/config/app_constants.dart';
+
 void main() async{
 
   WidgetsFlutterBinding.ensureInitialized();
+  //Stripe.publishableKey = AppConstants.stripePublishableKey;
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -63,6 +68,7 @@ void main() async{
         ChangeNotifierProvider(create: (_) => HotelProvider(HotelService.firestore())),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider(create: (context) => UserProvider(UserService.firestore())),
+        ChangeNotifierProvider(create: (_) => PaymentProvider()),
       ],
       child: const MyApp()
     ),
