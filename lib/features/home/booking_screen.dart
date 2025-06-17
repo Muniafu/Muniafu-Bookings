@@ -410,9 +410,9 @@ class _BookingScreenState extends State<BookingScreen>
         roomId: room.id,
         checkInDate: _checkInDate!,
         checkOutDate: _checkOutDate!,
-        numberOfGuests: _adults + _children, // Fixed: Added required parameter
+        numberOfGuests: _adults + _children,
         totalPrice: totalPrice,
-        status: BookingStatus.confirmed,
+        status: BookingStatus.pending, // Set to pending until payment completes
         createdAt: DateTime.now(),
         specialRequests: _requestsController.text.isNotEmpty
             ? [_requestsController.text]
@@ -422,19 +422,10 @@ class _BookingScreenState extends State<BookingScreen>
       Navigator.push(
         context, 
         MaterialPageRoute(
-          builder: (_) => PaymentScreen.real( // Fixed: Use named constructor
+          builder: (_) => PaymentScreen(
             amount: totalPrice,
             currency: 'USD',
-            bookingId: booking.id,
-            booking: booking,
-            room: room,
-            guestInfo: {
-              'name': _nameController.text,
-              'email': _emailController.text,
-              'phone': _phoneController.text,
-              'adults': _adults,
-              'children': _children,
-            },
+            booking: booking, // Pass the booking object
           ),
         ),
       );

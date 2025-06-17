@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../../data/models/user.dart';
 import 'package:muniafu/providers/user_provider.dart';
 import 'package:muniafu/app/core/widgets/button_widget.dart';
-import 'payment_screen.dart';
 import 'package:muniafu/features/authentication/screens/welcome_screen.dart';
 import 'package:muniafu/features/home/widgets/profile_info_row.dart';
 
@@ -32,7 +31,6 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.user;
 
@@ -480,13 +478,18 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _navigateToPaymentMethods(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PaymentScreen.mock(
-          amount: 0.0,
-          onPaymentSuccess: () {}, // Dummy callback
-        ),
+    // Implement proper payment method screen
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Payment Methods'),
+        content: const Text('Payment methods management is coming soon!'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
       ),
     );
   }
