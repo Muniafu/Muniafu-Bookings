@@ -42,9 +42,15 @@ class BookingService {
     throw _unsupportedError('createBooking');
   }
 
-  Future<void> createBookingWithModel(Booking booking) async {
+  Future<String> createBookingWithModel(Booking booking) async {
     if (isFirestoreMode) {
-      return _createFirestoreBookingWithModel(booking);
+      try {
+        // Use booking ID as document ID
+        await _bookingCollection!.doc(booking.id).set(booking.toFirestore());
+        return booking.id;
+      } catch(e) {
+        throw BookingServiceException('Firestore model create failed: ${e.toString()}');
+      }
     }
     throw _unsupportedError('createBookingWithModel');
   }
@@ -236,9 +242,31 @@ class BookingService {
 
   Future<void> updateBookingStatus(String bookingId, String status) async {
     if (isFirestoreMode) {
-      return _updateFirestoreBookingStatus(bookingId, status);
+      try {
+        await _bookingCollection!.doc(bookingId).update({
+          'status': status,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        throw BookingServiceException('Failed to update booking status: ${e.toString()}');
+      }
+    } else if (isHttpMode) {
+      try {
+        final res = await http.patch(
+          Uri.parse('$_baseUrl/bookings/$bookingId'),
+          body: jsonEncode({'status': status}),
+          headers: {'Content-Type': 'application/json'},
+        );
+
+        if (res.statusCode != 200) {
+          throw BookingServiceException('Status update failed: ${res.statusCode}');
+        }
+      } catch (e) {
+        throw BookingServiceException('HTTP status update failed: ${e.toString()}');
+      }
+    } else {
+      throw _unsupportedError('updateBookingStatus');
     }
-    throw _unsupportedError('updateBookingStatus');
   }
 
   Future<void> _updateFirestoreBookingStatus(String bookingId, String status) async {
