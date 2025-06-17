@@ -1,0 +1,4 @@
+class AppConstants {
+  static const String stripePublishableKey = "pk_test_51RZ2d9InxJM7krgidlERrbmp3aAt5f0RLaGp1YE5g3dQnk6P4lCYHKGagC4UeW8xVtXDMUInWYkokpH6SlU8qY8b003pZ2c02d";
+  static const String stripeSecretKey = "sk_test_51RZ2d9InxJM7krgiPo0k8vVjHnvV60srdgObESvFFty8zO2c4VTQykuXsW6na4wSog12cKWdFlgLRC4lzPO5ZPtX00omQz3kHk";
+}
