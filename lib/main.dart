@@ -64,7 +64,7 @@ void main() async{
           firestore: firestore,
           prefs: prefs,
         ))),
-        ChangeNotifierProvider(create: (_) => BookingProvider(BookingService.firestore())),
+        ChangeNotifierProvider(create: (_) => BookingProvider(BookingService())),
         ChangeNotifierProvider(create: (_) => HotelProvider(HotelService.firestore())),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider(create: (context) => UserProvider(UserService.firestore())),
