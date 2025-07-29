@@ -422,11 +422,7 @@ class _BookingScreenState extends State<BookingScreen>
       Navigator.push(
         context, 
         MaterialPageRoute(
-          builder: (_) => PaymentScreen(
-            amount: totalPrice,
-            currency: 'USD',
-            booking: booking, // Pass the booking object
-          ),
+          builder: (_) => const PaymentProcessingScreen(roomId: '',),
         ),
       );
     }
