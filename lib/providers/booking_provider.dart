@@ -1,150 +1,75 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../data/models/booking.dart';
 import '../data/services/booking_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class BookingProvider with ChangeNotifier {
-  final BookingService _bookingService;
-  final String? userId;
+class BookingProvider extends ChangeNotifier {
+  final BookingService _bookingService = BookingService();
 
-  List<Booking> _bookings = [];
+  final List<Booking> _bookings = [];
   bool _isLoading = false;
   String? _error;
-  String? _successMessage;
+
+  BookingProvider(BookingService bookingService);
 
   List<Booking> get bookings => _bookings;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  String? get successMessage => _successMessage;
-  
-  List<Booking> get activeBookings => _bookings.where((b) => b.isActive).toList();
-  List<Booking> get pastBookings => _bookings.where((b) => 
-      b.status == BookingStatus.completed || 
-      b.status == BookingStatus.cancelled).toList();
-  List<Booking> get upcomingBookings => _bookings.where((b) => 
-      b.status == BookingStatus.confirmed && 
-      b.checkInDate.isAfter(DateTime.now())).toList();
 
-  BookingProvider(this._bookingService, {this.userId});
+  List<Booking> get activeBookings => _bookings.where((b) => b.checkInDate.isAfter(DateTime.now())).toList();
 
-  Future<void> loadBookings() async {
-    if (userId == null) return;
-    
+  List<Booking> get pastBookings => _bookings.where((b) => b.checkOutDate.isBefore(DateTime.now())).toList();
+
+  Future<void> fetchBookings() async {
     try {
-      _setLoading(true);
-      _clearMessages();
-      _bookings = await _bookingService.getUserBookings(userId!);
-    } catch (e) {
-      _error = 'Failed to load bookings: ${e.toString()}';
-    } finally {
-      _setLoading(false);
-    }
-  }
+      _isLoading = true;
+      _error = null;
+      notifyListeners();
 
-  // UPDATED: Create booking with payment verification
-  Future<String> createBooking(Booking booking) async {
-    try {
-      _setLoading(true);
-      _clearMessages();
-      
-      String bookingId;
-      
-      if (_bookingService.isFirestoreMode) {
-        // Use model-based creation for Firestore
-        bookingId = await _bookingService.createBookingWithModel(booking);
-      } else {
-        // For HTTP mode, use JSON creation
-        bookingId = await _bookingService.createBooking(booking.toJson());
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+      final snapshot = await FirebaseFirestore.instance.collection('bookings').where('userId', isEqualTo: userId).orderBy('CreatedAt', descending: true).get();
+
+      _bookings.clear();
+      for (final doc in snapshot.docs) {
+        _bookings.add(Booking.fromFirestore(doc));
       }
-      
-      // Update booking with server-generated ID
-      final confirmedBooking = booking.copyWith(id: bookingId);
-      _bookings.add(confirmedBooking);
-      
-      _successMessage = 'Booking successful!';
-      return bookingId;
     } catch (e) {
-      _error = 'Failed to create booking: ${e.toString()}';
-      rethrow;
+      _error = 'Failed to fetch bookings: $e';
     } finally {
-      _setLoading(false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
-  // NEW: Confirm booking after payment
-  Future<void> confirmBooking(String bookingId) async {
-    try {
-      _setLoading(true);
-      _clearMessages();
-      
-      await _bookingService.updateBookingStatus(
-        bookingId, 
-        BookingStatus.confirmed.name
-      );
-      
-      // Update local booking status
-      final index = _bookings.indexWhere((b) => b.id == bookingId);
-      if (index != -1) {
-        _bookings[index] = _bookings[index].copyWith(
-          status: BookingStatus.confirmed
-        );
-      }
-      
-      _successMessage = 'Booking confirmed!';
-    } catch (e) {
-      _error = 'Failed to confirm booking: ${e.toString()}';
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // UPDATED: Cancel booking with status check
   Future<void> cancelBooking(String bookingId) async {
     try {
-      _setLoading(true);
-      _clearMessages();
-      
-      final booking = _bookings.firstWhere((b) => b.id == bookingId);
-      
-      // Prevent cancelling already completed bookings
-      if (booking.status == BookingStatus.completed) {
-        throw Exception('Cannot cancel completed bookings');
-      }
-      
-      await _bookingService.cancelBooking(bookingId);
-      
-      // Update status instead of removing
-      final index = _bookings.indexWhere((b) => b.id == bookingId);
-      if (index != -1) {
-        _bookings[index] = _bookings[index].copyWith(
-          status: BookingStatus.cancelled
-        );
-      }
-      
-      _successMessage = 'Booking cancelled successfully';
+      await FirebaseFirestore.instance.collection('bookings').doc(bookingId).update({'status': 'cancelled'});
+
+      _bookings.removeWhere((b) => b.id == bookingId);
+      notifyListeners();
     } catch (e) {
-      _error = 'Failed to cancel booking: ${e.toString()}';
       rethrow;
-    } finally {
-      _setLoading(false);
     }
   }
 
-  // ... rest of the methods remain the same ...
+  Future<String> mockCreateBooking(String roomId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) throw Exception('Not logged in');
 
-  void clearMessages() {
-    _error = null;
-    _successMessage = null;
-    notifyListeners();
+    final bookingId = await _bookingService.createMockBooking(
+      userId: user.uid,
+      roomId: roomId,
+    );
+
+    // Notify admin (in-app mock for now)
+    _notifyAdmin(bookingId);
+
+    return bookingId;
   }
 
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
-
-  void _clearMessages() {
-    _error = null;
-    _successMessage = null;
+  void _notifyAdmin(String bookingId) {
+    // You can also trigger Firestore entry or FCM call here
+    debugPrint('[Admin Alert] new booking created: $bookingId');
   }
 }
