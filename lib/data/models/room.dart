@@ -5,10 +5,10 @@ class Room {
   final String hotelId;
   final String type;
   final String name;
+  final List<String> images;
   final double pricePerNight;
   final int capacity;
   final bool isAvailable;
-  final List<String> images;
   final List<String> amenities;
   final double? discount;
   final String? description;
@@ -27,17 +27,27 @@ class Room {
     this.description,
   });
 
+  // Get main image (first in list) for backward compatibility
+  String get imageUrl => images.isNotEmpty ? images.first : '';
+
   // Calculate total price with discount
-  double calculateTotalPrice(int nights) => 
+  double calculateTotalPrice(int nights) =>
       discount != null
-        ? (pricePerNight * (1 - discount!)) * nights
-        : pricePerNight * nights;
+          ? (pricePerNight * (1 - discount!)) * nights
+          : pricePerNight * nights;
 
   // Get discounted price for single night
-  double get discountedPrice => 
+  double get discountedPrice =>
       discount != null
-        ? pricePerNight * (1 - discount!)
-        : pricePerNight;
+          ? pricePerNight * (1 - discount!)
+          : pricePerNight;
+
+  // Get formatted price
+  String get formattedPrice => '\$${pricePerNight.toStringAsFixed(2)}/night';
+
+  // Get formatted discounted price
+  String get formattedDiscountedPrice => 
+      '\$${discountedPrice.toStringAsFixed(2)}/night';
 
   // JSON parsing with backward compatibility
   factory Room.fromJson(Map<String, dynamic> json) {
@@ -56,13 +66,13 @@ class Room {
     );
   }
 
-  // Firestore integration
+  // Firestore document parsing
   factory Room.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Room.fromJson({...data, 'id': doc.id});
   }
 
-  // JSON serialization
+  // Convert to JSON for API/storage
   Map<String, dynamic> toJson() => {
     'id': id,
     'hotelId': hotelId,
@@ -77,7 +87,7 @@ class Room {
     if (description != null) 'description': description,
   };
 
-  // Firestore serialization
+  // Convert to Firestore format
   Map<String, dynamic> toFirestore() => {
     'hotelId': hotelId,
     'type': type,
@@ -117,6 +127,48 @@ class Room {
     discount: discount ?? this.discount,
     description: description ?? this.description,
   );
+
+  // Equality comparison
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    
+    return other is Room &&
+        other.id == id &&
+        other.hotelId == hotelId &&
+        other.type == type &&
+        other.name == name &&
+        other.pricePerNight == pricePerNight &&
+        other.capacity == capacity &&
+        other.isAvailable == isAvailable &&
+        other.images == images &&
+        other.amenities == amenities &&
+        other.discount == discount &&
+        other.description == description;
+  }
+
+  @override
+  int get hashCode {
+    return id.hashCode ^
+        hotelId.hashCode ^
+        type.hashCode ^
+        name.hashCode ^
+        pricePerNight.hashCode ^
+        capacity.hashCode ^
+        isAvailable.hashCode ^
+        images.hashCode ^
+        amenities.hashCode ^
+        discount.hashCode ^
+        description.hashCode;
+  }
+
+  @override
+  String toString() {
+    return 'Room(id: $id, hotelId: $hotelId, type: $type, name: $name, '
+        'pricePerNight: $pricePerNight, capacity: $capacity, '
+        'isAvailable: $isAvailable, images: $images, amenities: $amenities, '
+        'discount: $discount, description: $description)';
+  }
 
   // Helper methods (private)
   static double _parseDouble(dynamic value) => 

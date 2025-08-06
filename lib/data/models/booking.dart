@@ -6,12 +6,12 @@ class Booking {
   final String id;
   final String userId;
   final String hotelId;
-  final String hotelName; // Added from first implementation
+  final String hotelName;
   final String roomId;
   final DateTime checkInDate;
   final DateTime checkOutDate;
   final int numberOfGuests;
-  final double totalPrice;
+  final double totalAmount;
   final BookingStatus status;
   final DateTime? createdAt;
   final List<String>? specialRequests;
@@ -25,7 +25,7 @@ class Booking {
     required this.checkInDate,
     required this.checkOutDate,
     required this.numberOfGuests,
-    required this.totalPrice,
+    required this.totalAmount,
     this.status = BookingStatus.confirmed,
     this.createdAt,
     this.specialRequests,
@@ -33,7 +33,7 @@ class Booking {
 
   // Getters
   int get durationNights => checkOutDate.difference(checkInDate).inDays;
-  double get pricePerNight => totalPrice / durationNights;
+  double get pricePerNight => totalAmount / durationNights;
   
   bool get isActive {
     final now = DateTime.now();
@@ -42,29 +42,26 @@ class Booking {
            checkOutDate.isAfter(now);
   }
 
-  // JSON parsing (API responses)
-  factory Booking.fromJson(Map<String, dynamic> json) {
-    return Booking(
-      id: json['id'] ?? '',
-      userId: json['userId'] ?? json['user_id'] ?? '',
-      hotelId: json['hotelId'] ?? '',
-      hotelName: json['hotelName'] ?? '',
-      roomId: json['roomId'] ?? json['room_id'] ?? '',
-      checkInDate: _parseDateTime(json['checkInDate'] ?? json['check_in']),
-      checkOutDate: _parseDateTime(json['checkOutDate'] ?? json['check_out']),
-      numberOfGuests: _parseInt(json['numberOfGuests']) ?? 1,
-      totalPrice: _parseDouble(json['totalPrice'] ?? json['total_amount']) ?? 0.0,
-      status: _parseStatus(json['status']),
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
-          : null,
-      specialRequests: json['specialRequests'] != null 
-          ? List<String>.from(json['specialRequests'])
-          : null,
-    );
+  // Convert to Firestore Map (for saving to Firestore)
+  Map<String, dynamic> toFirestore() {
+    return {
+      'userId': userId,
+      'hotelId': hotelId,
+      'hotelName': hotelName,
+      'roomId': roomId,
+      'checkInDate': Timestamp.fromDate(checkInDate),
+      'checkOutDate': Timestamp.fromDate(checkOutDate),
+      'numberOfGuests': numberOfGuests,
+      'totalAmount': totalAmount,
+      'status': status.name,
+      'createdAt': createdAt != null 
+          ? Timestamp.fromDate(createdAt!) 
+          : FieldValue.serverTimestamp(),
+      if (specialRequests != null) 'specialRequests': specialRequests,
+    };
   }
 
-  // Firestore documents
+  // Create from Firestore Document (for reading from Firestore)
   factory Booking.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Booking(
@@ -76,7 +73,7 @@ class Booking {
       checkInDate: (data['checkInDate'] as Timestamp).toDate(),
       checkOutDate: (data['checkOutDate'] as Timestamp).toDate(),
       numberOfGuests: (data['numberOfGuests'] as num).toInt(),
-      totalPrice: (data['totalPrice'] as num).toDouble(),
+      totalAmount: (data['totalAmount'] as num).toDouble(),
       status: _parseStatus(data['status']),
       createdAt: data['createdAt']?.toDate(),
       specialRequests: data['specialRequests'] != null 
@@ -85,7 +82,7 @@ class Booking {
     );
   }
 
-  // Convert to JSON (API requests)
+  // Convert to JSON (for API responses)
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -96,33 +93,36 @@ class Booking {
       'checkInDate': checkInDate.toIso8601String(),
       'checkOutDate': checkOutDate.toIso8601String(),
       'numberOfGuests': numberOfGuests,
-      'totalPrice': totalPrice,
+      'totalAmount': totalAmount,
       'status': status.name,
       if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
       if (specialRequests != null) 'specialRequests': specialRequests,
     };
   }
 
-  // Convert to Firestore
-  Map<String, dynamic> toFirestore() {
-    return {
-      'userId': userId,
-      'hotelId': hotelId,
-      'hotelName': hotelName,
-      'roomId': roomId,
-      'checkInDate': Timestamp.fromDate(checkInDate),
-      'checkOutDate': Timestamp.fromDate(checkOutDate),
-      'numberOfGuests': numberOfGuests,
-      'totalPrice': totalPrice,
-      'status': status.name,
-      'createdAt': createdAt != null 
-          ? Timestamp.fromDate(createdAt!) 
-          : FieldValue.serverTimestamp(),
-      if (specialRequests != null) 'specialRequests': specialRequests,
-    };
+  // Create from JSON (for API requests)
+  factory Booking.fromJson(Map<String, dynamic> json) {
+    return Booking(
+      id: json['id'] ?? '',
+      userId: json['userId'] ?? json['user_id'] ?? '',
+      hotelId: json['hotelId'] ?? '',
+      hotelName: json['hotelName'] ?? '',
+      roomId: json['roomId'] ?? json['room_id'] ?? '',
+      checkInDate: _parseDateTime(json['checkInDate'] ?? json['check_in']),
+      checkOutDate: _parseDateTime(json['checkOutDate'] ?? json['check_out']),
+      numberOfGuests: _parseInt(json['numberOfGuests']) ?? 1,
+      totalAmount: _parseDouble(json['totalAmount'] ?? json['total_amount']) ?? 0.0,
+      status: _parseStatus(json['status']),
+      createdAt: json['createdAt'] != null 
+          ? DateTime.parse(json['createdAt']) 
+          : null,
+      specialRequests: json['specialRequests'] != null 
+          ? List<String>.from(json['specialRequests'])
+          : null,
+    );
   }
 
-  // Immutable updates
+  // Immutable copy with updates
   Booking copyWith({
     String? id,
     String? userId,
@@ -132,7 +132,7 @@ class Booking {
     DateTime? checkInDate,
     DateTime? checkOutDate,
     int? numberOfGuests,
-    double? totalPrice,
+    double? totalAmount,
     BookingStatus? status,
     DateTime? createdAt,
     List<String>? specialRequests,
@@ -146,7 +146,7 @@ class Booking {
       checkInDate: checkInDate ?? this.checkInDate,
       checkOutDate: checkOutDate ?? this.checkOutDate,
       numberOfGuests: numberOfGuests ?? this.numberOfGuests,
-      totalPrice: totalPrice ?? this.totalPrice,
+      totalAmount: totalAmount ?? this.totalAmount,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       specialRequests: specialRequests ?? this.specialRequests,

@@ -202,7 +202,10 @@ class Hotel {
 
   @override
   String toString() {
-    return 'Hotel(id: $id, name: $name, location: $location, rating: $rating, '
-        'pricePerNight: $pricePerNight, stars: $stars, isFeatured: $isFeatured)';
+    return 'Hotel(id: $id, name: $name, location: $location, '
+        'description: $description, images: $images, amenities: $amenities, '
+        'rating: $rating, pricePerNight: $pricePerNight, ownerId: $ownerId, '
+        'reviewCount: $reviewCount, latitude: $latitude, longitude: $longitude, '
+        'stars: $stars, isFeatured: $isFeatured)';
   }
 }

@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class User {
-  final String id;
+  final String uid;
   String name;
   final String email;
   String? photoUrl;
@@ -14,9 +14,10 @@ class User {
   String? location;
   String? phone;
   String? bio;
+  String? fullName;
 
   User({
-    required this.id,
+    required this.uid,
     required this.name,
     required this.email,
     this.photoUrl,
@@ -29,15 +30,25 @@ class User {
     this.location,
     this.phone,
     this.bio,
-  });
+    this.fullName,
+  }) {
+    // Initialize fullName from name if not provided
+    fullName ??= name;
+  }
 
   // Getter to check admin status
   bool get isAdmin => role == 'admin';
 
+  // Factory constructor for Firestore documents
+  factory User.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return User.fromJson({...data, 'id': doc.id});
+  }
+
   // JSON parsing with backward compatibility
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'] ?? '',
+      uid: json['id'] ?? json['uid'] ?? '',
       name: json['name'] ?? json['displayName'] ?? '',
       email: json['email'] ?? '',
       photoUrl: json['photoUrl'] ?? json['photo_url'] ?? json['avatarUrl'],
@@ -50,19 +61,14 @@ class User {
       location: json['location'] ?? json['address'],
       phone: json['phone'] ?? json['phoneNumber'],
       bio: json['bio'] ?? json['about'],
+      fullName: json['fullName'] ?? json['name'],
     );
-  }
-
-  // Firestore document parsing
-  factory User.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return User.fromJson({...data, 'id': doc.id});
   }
 
   // Convert to JSON for API/storage
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
+      'id': uid,
       'name': name,
       'email': email,
       if (photoUrl != null) 'photoUrl': photoUrl,
@@ -75,6 +81,7 @@ class User {
       if (location != null) 'location': location,
       if (phone != null) 'phone': phone,
       if (bio != null) 'bio': bio,
+      if (fullName != null) 'fullName': fullName,
     };
   }
 
@@ -93,6 +100,17 @@ class User {
       if (location != null) 'location': location,
       if (phone != null) 'phone': phone,
       if (bio != null) 'bio': bio,
+      if (fullName != null) 'fullName': fullName,
+    };
+  }
+
+  // Simple map conversion (from AppUser)
+  Map<String, dynamic> toMap() {
+    return {
+      'email': email,
+      'name': name,
+      'fullName': fullName,
+      'phone': phone,
     };
   }
 
@@ -111,9 +129,10 @@ class User {
     String? location,
     String? phone,
     String? bio,
+    String? fullName,
   }) {
     return User(
-      id: id ?? this.id,
+      uid: id ?? this.uid,
       name: name ?? this.name,
       email: email ?? this.email,
       photoUrl: photoUrl ?? this.photoUrl,
@@ -121,11 +140,12 @@ class User {
       darkMode: darkMode ?? this.darkMode,
       role: role ?? this.role,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
+      updatedAt: updatedAt ?? DateTime.now(), // Always update timestamp
       birthDate: birthDate ?? this.birthDate,
       location: location ?? this.location,
       phone: phone ?? this.phone,
       bio: bio ?? this.bio,
+      fullName: fullName ?? this.fullName,
     );
   }
 
@@ -144,7 +164,7 @@ class User {
     if (identical(this, other)) return true;
     
     return other is User &&
-        other.id == id &&
+        other.uid == uid &&
         other.name == name &&
         other.email == email &&
         other.photoUrl == photoUrl &&
@@ -156,12 +176,13 @@ class User {
         other.birthDate == birthDate &&
         other.location == location &&
         other.phone == phone &&
-        other.bio == bio;
+        other.bio == bio &&
+        other.fullName == fullName;
   }
 
   @override
   int get hashCode {
-    return id.hashCode ^
+    return uid.hashCode ^
         name.hashCode ^
         email.hashCode ^
         photoUrl.hashCode ^
@@ -173,14 +194,15 @@ class User {
         birthDate.hashCode ^
         location.hashCode ^
         phone.hashCode ^
-        bio.hashCode;
+        bio.hashCode ^
+        fullName.hashCode;
   }
 
   // Debugging representation
   @override
   String toString() {
     return 'User('
-        'id: $id, '
+        'id: $uid, '
         'name: $name, '
         'email: $email, '
         'photoUrl: $photoUrl, '
@@ -192,7 +214,8 @@ class User {
         'birthDate: $birthDate, '
         'location: $location, '
         'phone: $phone, '
-        'bio: $bio'
+        'bio: $bio, '
+        'fullName: $fullName'
         ')';
   }
 }
