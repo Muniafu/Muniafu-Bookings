@@ -119,6 +119,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const SizedBox(height: 32),
+              const LogoWidget(
+                size: 80,
+                imagePath: 'assets/images/logo.png',
+              ),
               _buildImage(item),
               const SizedBox(height: 40),
               _buildTitle(item),

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../data/models/room.dart';
 import 'booking_screen.dart';
 
 class RoomDetailsScreen extends StatefulWidget {
   final Room room;
 
-  const RoomDetailsScreen({super.key, required this.room});
+  const RoomDetailsScreen({Key? key, required this.room}) : super(key: key);
 
   @override
   State<RoomDetailsScreen> createState() => _RoomDetailsScreenState();
@@ -14,6 +15,9 @@ class RoomDetailsScreen extends StatefulWidget {
 class _RoomDetailsScreenState extends State<RoomDetailsScreen> {
   int _currentImageIndex = 0;
   final PageController _pageController = PageController();
+  DateTime? _checkIn;
+  DateTime? _checkOut;
+  int _guests = 1;
 
   @override
   void dispose() {
@@ -21,12 +25,27 @@ class _RoomDetailsScreenState extends State<RoomDetailsScreen> {
     super.dispose();
   }
 
+  Future<void> _selectDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (picked != null) {
+      setState(() {
+        _checkIn = picked.start;
+        _checkOut = picked.end;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final room = widget.room;
-    final hasMultipleImages = room.images.length > 1;
+    final hasMultipleImages = room.images.isNotEmpty && room.images.length > 1;
     const defaultImage = 'assets/images/room_sample.jpg';
 
     return Scaffold(
@@ -79,6 +98,30 @@ class _RoomDetailsScreenState extends State<RoomDetailsScreen> {
                   _buildAvailabilityBadge(room),
                   const SizedBox(height: 20),
                   
+                  // Date selection
+                  ListTile(
+                    leading: const Icon(Icons.date_range),
+                    title: Text(_checkIn != null && _checkOut != null
+                        ? '${DateFormat.yMMMd().format(_checkIn!)} - ${DateFormat.yMMMd().format(_checkOut!)}'
+                        : 'Select Check-in & Check-out'),
+                    trailing: const Icon(Icons.edit),
+                    onTap: _selectDateRange,
+                  ),
+                  
+                  // Guests selection
+                  ListTile(
+                    leading: const Icon(Icons.person),
+                    title: Text('Guests: $_guests'),
+                    trailing: DropdownButton<int>(
+                      value: _guests,
+                      items: List.generate(5, (i) => i + 1)
+                          .map((val) => DropdownMenuItem(value: val, child: Text('$val')))
+                          .toList(),
+                      onChanged: (val) => setState(() => _guests = val!),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  
                   // Amenities section
                   if (room.amenities.isNotEmpty) ...[
                     const Text(
@@ -125,7 +168,21 @@ class _RoomDetailsScreenState extends State<RoomDetailsScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () => _bookRoom(room),
+                      onPressed: room.isAvailable && _checkIn != null && _checkOut != null
+                          ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => BookingScreen(
+                                    room: room,
+                                    checkIn: _checkIn!,
+                                    checkOut: _checkOut!,
+                                    guests: _guests,
+                                  ),
+                                ),
+                              );
+                            }
+                          : null,
                       child: const Text(
                         "Book Now",
                         style: TextStyle(fontSize: 18),
@@ -201,7 +258,7 @@ class _RoomDetailsScreenState extends State<RoomDetailsScreen> {
   Widget _buildAvailabilityBadge(Room room) {
     return Chip(
       backgroundColor: room.isAvailable
-          ? Colors.green[100] // Using color shade instead of withOpacity()
+          ? Colors.green[100]
           : Colors.red[100],
       label: Text(
         room.isAvailable ? 'Available Now' : 'Currently Unavailable',
@@ -241,14 +298,5 @@ class _RoomDetailsScreenState extends State<RoomDetailsScreen> {
     if (lowerAmenity.contains('pool')) return Icons.pool;
     if (lowerAmenity.contains('gym')) return Icons.fitness_center;
     return null;
-  }
-
-  void _bookRoom(Room room) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BookingScreen(room: room),
-      ),
-    );
   }
 }

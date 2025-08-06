@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../app/core/widgets/button_widget.dart';
 import '../../data/models/user.dart';
-import 'package:muniafu/providers/user_provider.dart';
-import 'package:muniafu/app/core/widgets/button_widget.dart';
-import 'package:muniafu/features/authentication/screens/welcome_screen.dart';
-import 'package:muniafu/features/home/widgets/profile_info_row.dart';
+import '../home/widgets/profile_info_row.dart';
+import '../../providers/auth_provider.dart';
+import '../authentication/screens/welcome_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,79 +13,98 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen>
+class _ProfileScreenState extends State<ProfileScreen> 
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadUserData();
+  }
+
+  void _loadUserData() {
+    final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    if (user != null) {
+      _fullNameController.text = user.name;
+      _phoneController.text = user.phone ?? '';
+    }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _fullNameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final user = userProvider.user;
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.currentUser;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => _navigateToEditProfile(context),
-            tooltip: 'Edit Profile',
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Overview'),
-            Tab(text: 'Settings'),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('My Profile'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => _tabController.animateTo(1),
+              tooltip: 'Edit Profile',
+            ),
           ],
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(icon: Icon(Icons.person)),
+              Tab(icon: Icon(Icons.settings)),
+            ],
+          ),
         ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Overview Tab
-          _buildOverviewTab(context, user),
-          // Settings Tab
-          _buildSettingsTab(userProvider),
-        ],
+        body: user == null
+            ? const Center(child: Text('User not logged in'))
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  // Profile Overview Tab
+                  _buildOverviewTab(context, user),
+                  // Edit Profile Tab
+                  _buildEditProfileTab(context, authProvider),
+                ],
+              ),
       ),
     );
   }
 
-  Widget _buildOverviewTab(BuildContext context, User? user) {
+  Widget _buildOverviewTab(BuildContext context, User user) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Profile Header Section
+          // Profile Header
           _buildProfileHeader(context, user),
           const SizedBox(height: 24),
           
-          // Quick Actions Section
+          // Quick Actions
           _buildQuickActions(context),
           const SizedBox(height: 24),
           
-          // Personal Information Section
+          // Personal Information
           _buildPersonalInfoSection(user),
           const SizedBox(height: 24),
           
-          // Recent Activity Section
+          // Recent Activity
           _buildRecentActivity(),
           const SizedBox(height: 24),
           
-          // Account Management Section
+          // Account Management
           _buildAccountManagement(context),
           const SizedBox(height: 24),
           
@@ -96,45 +115,77 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildSettingsTab(UserProvider userProvider) {
-    return ListView(
+  Widget _buildEditProfileTab(BuildContext context, AuthProvider authProvider) {
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      children: [
-        SwitchListTile(
-          title: const Text('Dark Mode'),
-          value: userProvider.user?.darkMode ?? false,
-          onChanged: (_) => userProvider.toggleDarkMode(),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          children: [
+            // Profile Picture
+            _buildProfilePicture(context),
+            const SizedBox(height: 24),
+            
+            // Email (read-only)
+            TextFormField(
+              enabled: false,
+              initialValue: authProvider.currentUser?.email,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                prefixIcon: Icon(Icons.email),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Full Name
+            TextFormField(
+              controller: _fullNameController,
+              decoration: const InputDecoration(
+                labelText: 'Full Name',
+                prefixIcon: Icon(Icons.person),
+                border: OutlineInputBorder(),
+              ),
+              validator: (val) => val!.isEmpty ? 'Enter full name' : null,
+            ),
+            const SizedBox(height: 16),
+            
+            // Phone
+            TextFormField(
+              controller: _phoneController,
+              decoration: const InputDecoration(
+                labelText: 'Phone',
+                prefixIcon: Icon(Icons.phone),
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.phone,
+              validator: (val) => val!.isEmpty ? 'Enter phone number' : null,
+            ),
+            const SizedBox(height: 24),
+            
+            // Save Button
+            ButtonWidget.filled(
+              text: 'Save Changes',
+              isLoading: authProvider.isLoading,
+              onPressed: () async {
+                if (_formKey.currentState!.validate()) {
+                  await authProvider.updateProfile(
+                    name: _fullNameController.text.trim(),
+                    phone: _phoneController.text.trim(),
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Profile updated successfully')),
+                  );
+                }
+              },
+            ),
+          ],
         ),
-        ListTile(
-          leading: const Icon(Icons.verified_user),
-          title: const Text('Verify Email'),
-          onTap: userProvider.verifyEmail,
-        ),
-        ListTile(
-          leading: const Icon(Icons.lock),
-          title: const Text('Change Password'),
-          onTap: () => _showChangePasswordDialog(context),
-        ),
-        ListTile(
-          leading: const Icon(Icons.payment),
-          title: const Text('Payment Methods'),
-          onTap: () => _navigateToPaymentMethods(context),
-        ),
-        ListTile(
-          leading: const Icon(Icons.notifications),
-          title: const Text('Notification Preferences'),
-          onTap: () => _navigateToNotifications(context),
-        ),
-        ListTile(
-          leading: const Icon(Icons.privacy_tip),
-          title: const Text('Privacy Settings'),
-          onTap: () => _navigateToPrivacy(context),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context, User? user) {
+  Widget _buildProfileHeader(BuildContext context, User user) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -147,12 +198,12 @@ class _ProfileScreenState extends State<ProfileScreen>
             CircleAvatar(
               radius: 40,
               backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(25),
-              backgroundImage: user?.photoUrl != null
-                  ? NetworkImage(user!.photoUrl!)
+              backgroundImage: user.photoUrl != null
+                  ? NetworkImage(user.photoUrl!)
                   : null,
-              child: user?.photoUrl == null
+              child: user.photoUrl == null
                   ? Text(
-                      user?.name.isNotEmpty == true ? user!.name[0] : '?',
+                      user.name.isNotEmpty ? user.name[0] : '?',
                       style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
                     )
                   : null,
@@ -163,7 +214,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user?.name ?? 'Guest User',
+                    user.name,
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -173,7 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    user?.email ?? 'user@example.com',
+                    user.email,
                     style: const TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
@@ -187,10 +238,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                       const Icon(Icons.star, color: Colors.amber, size: 20),
                       const SizedBox(width: 4),
                       Text(
-                        user?.isAdmin == true ? 'Admin' : 'Gold Member',
+                        user.isAdmin ? 'Admin' : 'Member',
                         style: TextStyle(
                           fontSize: 14,
-                          color: user?.isAdmin == true 
+                          color: user.isAdmin 
                               ? Colors.deepPurple 
                               : Colors.amber,
                           fontWeight: FontWeight.bold,
@@ -203,6 +254,32 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildProfilePicture(BuildContext context) {
+    return Center(
+      child: Stack(
+        children: [
+          CircleAvatar(
+            radius: 50,
+            backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(25),
+            child: const Icon(Icons.person, size: 60),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary,
+                shape: BoxShape.circle,
+              ),
+              padding: const EdgeInsets.all(8),
+              child: const Icon(Icons.edit, color: Colors.white, size: 20),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -236,7 +313,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           context,
           icon: Icons.settings,
           label: 'Settings',
-          onTap: () => _tabController.animateTo(1), // Switch to Settings tab
+          onTap: () => _tabController.animateTo(1),
         ),
       ],
     );
@@ -271,7 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _buildPersonalInfoSection(User? user) {
+  Widget _buildPersonalInfoSection(User user) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(
@@ -293,25 +370,24 @@ class _ProfileScreenState extends State<ProfileScreen>
             ),
             const SizedBox(height: 16),
             ProfileInfoRow(
-              title: 'Date of Birth',
-              value: user?.birthDate ?? 'Not set',
-              icon: Icons.cake,
-            ),
-            ProfileInfoRow(
-              title: 'Location',
-              value: user?.location ?? 'Not set',
-              icon: Icons.location_on,
+              title: 'Email',
+              value: user.email,
+              icon: Icons.email,
             ),
             ProfileInfoRow(
               title: 'Phone',
-              value: user?.phone ?? 'Not set',
+              value: user.phone ?? 'Not set',
               icon: Icons.phone,
             ),
             ProfileInfoRow(
-              title: 'Bio',
-              value: user?.bio ?? 'Not set',
-              icon: Icons.info,
-              maxLines: 3,
+              title: 'Location',
+              value: user.location ?? 'Not set',
+              icon: Icons.location_on,
+            ),
+            ProfileInfoRow(
+              title: 'Member Since',
+              value: user.createdAt.toLocal().toString().split(' ')[0],
+              icon: Icons.calendar_today,
             ),
           ],
         ),
@@ -340,21 +416,15 @@ class _ProfileScreenState extends State<ProfileScreen>
             const SizedBox(height: 16),
             _buildActivityItem(
               icon: Icons.hotel,
-              title: 'Booked Sunset Paradise Resort',
+              title: 'Last Booking',
               subtitle: 'December 15-20, 2023',
               color: Colors.green,
             ),
             _buildActivityItem(
               icon: Icons.star,
-              title: 'Earned Gold Status',
-              subtitle: 'December 1, 2023',
+              title: 'Reward Points',
+              subtitle: '1,250 points available',
               color: Colors.amber,
-            ),
-            _buildActivityItem(
-              icon: Icons.thumb_up,
-              title: 'Liked Mountain View Lodge',
-              subtitle: 'November 28, 2023',
-              color: Colors.blue,
             ),
           ],
         ),
@@ -396,7 +466,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Account Management',
+                'Account Settings',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -404,48 +474,27 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
             ),
             const SizedBox(height: 16),
-            _buildAccountOption(
-              context,
-              icon: Icons.payment,
-              title: 'Payment Methods',
-              onTap: () => _navigateToPaymentMethods(context),
+            ListTile(
+              leading: const Icon(Icons.lock),
+              title: const Text('Change Password'),
+              trailing: const Icon(Icons.arrow_forward),
+              onTap: () => _showChangePasswordDialog(context),
             ),
-            _buildAccountOption(
-              context,
-              icon: Icons.security,
-              title: 'Security',
-              onTap: () => _navigateToSecurity(context),
-            ),
-            _buildAccountOption(
-              context,
-              icon: Icons.notifications,
-              title: 'Notification Preferences',
+            ListTile(
+              leading: const Icon(Icons.notifications),
+              title: const Text('Notification Preferences'),
+              trailing: const Icon(Icons.arrow_forward),
               onTap: () => _navigateToNotifications(context),
             ),
-            _buildAccountOption(
-              context,
-              icon: Icons.privacy_tip,
-              title: 'Privacy Settings',
+            ListTile(
+              leading: const Icon(Icons.privacy_tip),
+              title: const Text('Privacy Settings'),
+              trailing: const Icon(Icons.arrow_forward),
               onTap: () => _navigateToPrivacy(context),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildAccountOption(
-    BuildContext context, {
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-      title: Text(title),
-      trailing: const Icon(Icons.arrow_forward),
-      onTap: onTap,
     );
   }
 
@@ -459,56 +508,30 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // Navigation methods
-  void _navigateToEditProfile(BuildContext context) {
-    // Implement navigation to edit profile screen
-    // Navigator.push(context, MaterialPageRoute(builder: (_) => EditProfileScreen()));
-  }
-
+  // Navigation and Dialog Methods
   void _navigateToBookingHistory(BuildContext context) {
-    // Implement navigation to booking history
+    // Implement navigation
   }
 
   void _navigateToFavorites(BuildContext context) {
-    // Implement navigation to favorites
+    // Implement navigation
   }
 
   void _navigateToLoyalty(BuildContext context) {
-    // Implement navigation to loyalty program
-  }
-
-  void _navigateToPaymentMethods(BuildContext context) {
-    // Implement proper payment method screen
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Payment Methods'),
-        content: const Text('Payment methods management is coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _navigateToSecurity(BuildContext context) {
-    // Implement navigation to security settings
+    // Implement navigation
   }
 
   void _navigateToNotifications(BuildContext context) {
-    // Implement navigation to notification preferences
+    // Implement navigation
   }
 
   void _navigateToPrivacy(BuildContext context) {
-    // Implement navigation to privacy settings
+    // Implement navigation
   }
 
   void _showChangePasswordDialog(BuildContext context) {
     final newPasswordController = TextEditingController();
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     showDialog(
       context: context,
@@ -529,7 +552,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
           TextButton(
             onPressed: () async {
-              await userProvider.changePassword(newPasswordController.text);
+              await authProvider.changePassword(newPasswordController.text);
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Password changed successfully')),
@@ -543,7 +566,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _showLogoutConfirmation(BuildContext context) {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     showDialog(
       context: context,
@@ -556,8 +579,8 @@ class _ProfileScreenState extends State<ProfileScreen>
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              userProvider.logout();
+            onPressed: () async {
+              await authProvider.logout();
               Navigator.pop(context);
               Navigator.pushReplacement(
                 context,

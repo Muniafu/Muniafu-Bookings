@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/hotel.dart';
 import '../../data/models/room.dart';
-import '../.././providers/hotel_provider.dart';
+import '../../providers/room_provider.dart';
 import 'room_details_screen.dart';
 import 'booking_screen.dart';
 
@@ -12,11 +12,11 @@ class HotelRoomsScreen extends StatefulWidget {
   final String? searchQuery;
 
   const HotelRoomsScreen({
-    super.key,
+    Key? key,
     this.hotel,
     this.destination,
     this.searchQuery,
-  });
+  }) : super(key: key);
 
   @override
   State<HotelRoomsScreen> createState() => _HotelRoomsScreenState();
@@ -27,8 +27,7 @@ class _HotelRoomsScreenState extends State<HotelRoomsScreen> {
   void initState() {
     super.initState();
     if (widget.hotel != null) {
-      // Remove unused provider variable
-      Provider.of<HotelProvider>(context, listen: false)
+      Provider.of<RoomProvider>(context, listen: false)
           .loadRooms(widget.hotel!.id);
     }
   }
@@ -40,13 +39,13 @@ class _HotelRoomsScreenState extends State<HotelRoomsScreen> {
         title: _buildAppBarTitle(),
         backgroundColor: Theme.of(context).colorScheme.primary,
       ),
-      body: _buildBody(),
+      body: widget.hotel != null ? _buildHotelRoomsContent() : _buildSampleRoomsContent(),
     );
   }
 
   Widget _buildAppBarTitle() {
     if (widget.hotel != null) {
-      return Text(widget.hotel!.name);
+      return Text('${widget.hotel!.name} Rooms');
     } else if (widget.destination != null) {
       return Text('Rooms in ${widget.destination!}');
     } else if (widget.searchQuery != null) {
@@ -55,24 +54,11 @@ class _HotelRoomsScreenState extends State<HotelRoomsScreen> {
     return const Text('Available Rooms');
   }
 
-  Widget _buildBody() {
-    if (widget.hotel != null) {
-      return _buildHotelRoomsContent();
-    } else {
-      return _buildSampleRoomsContent();
-    }
-  }
-
   Widget _buildHotelRoomsContent() {
-    // Remove unused provider variable, use Consumer directly
-    return Consumer<HotelProvider>(
+    return Consumer<RoomProvider>(
       builder: (context, provider, _) {
         if (provider.isLoading) {
           return const Center(child: CircularProgressIndicator());
-        }
-
-        if (provider.error != null) {
-          return Center(child: Text(provider.error!));
         }
 
         if (provider.rooms.isEmpty) {
@@ -82,69 +68,60 @@ class _HotelRoomsScreenState extends State<HotelRoomsScreen> {
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: provider.rooms.length,
-          itemBuilder: (_, i) => _buildRoomCard(provider.rooms[i]),
+          itemBuilder: (_, index) => _buildRoomCard(provider.rooms[index]),
         );
       },
     );
   }
 
   Widget _buildSampleRoomsContent() {
-    // Sample room data
-    final List<Map<String, dynamic>> rooms = [
-      {
-        'type': 'Deluxe Room',
-        'description': 'Sea view, Free breakfast, 35 sqm',
-        'icon': Icons.king_bed,
-        'price': 199.0,
-      },
-      {
-        'type': 'Executive Suite',
-        'description': 'City view, Lounge access, 50 sqm',
-        'icon': Icons.business,
-        'price': 299.0,
-      },
-      {
-        'type': 'Family Room',
-        'description': '2 bedrooms, Kitchenette, 60 sqm',
-        'icon': Icons.family_restroom,
-        'price': 349.0,
-      },
-      {
-        'type': 'Standard Room',
-        'description': 'Garden view, 25 sqm',
-        'icon': Icons.single_bed,
-        'price': 149.0,
-      },
-      {
-        'type': 'Presidential Suite',
-        'description': 'Panoramic views, Butler service, 100 sqm',
-        'icon': Icons.villa,
-        'price': 599.0,
-      },
+    final List<Room> sampleRooms = [
+      Room(
+        id: '1',
+        hotelId: 'sample',
+        type: 'Deluxe Room',
+        name: 'Deluxe Room',
+        pricePerNight: 199.0,
+        capacity: 2,
+        images: ['https://example.com/room1.jpg'],
+        amenities: ['WiFi', 'TV', 'AC'],
+        isAvailable: true,
+        description: 'Sea view, Free breakfast, 35 sqm',
+      ),
+      Room(
+        id: '2',
+        hotelId: 'sample',
+        type: 'Executive Suite',
+        name: 'Executive Suite',
+        pricePerNight: 299.0,
+        capacity: 2,
+        images: ['https://example.com/room2.jpg'],
+        amenities: ['WiFi', 'TV', 'AC', 'Minibar'],
+        isAvailable: true,
+        description: 'City view, Lounge access, 50 sqm',
+      ),
+      Room(
+        id: '3',
+        hotelId: 'sample',
+        type: 'Family Room',
+        name: 'Family Room',
+        pricePerNight: 349.0,
+        capacity: 4,
+        images: ['https://example.com/room3.jpg'],
+        amenities: ['WiFi', 'TV', 'AC', 'Kitchenette'],
+        isAvailable: true,
+        description: '2 bedrooms, Kitchenette, 60 sqm',
+      ),
     ];
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: rooms.length,
-      itemBuilder: (context, index) => _buildRoomCard(
-        Room(
-          id: 'sample-$index',
-          hotelId: 'sample-hotel',
-          type: rooms[index]['type'] as String,
-          name: rooms[index]['type'] as String,
-          pricePerNight: rooms[index]['price'] as double,
-          capacity: 2,
-          images: [],
-          amenities: [],
-          isAvailable: true,
-          description: rooms[index]['description'] as String,
-        ),
-        icon: rooms[index]['icon'] as IconData,
-      ),
+      itemCount: sampleRooms.length,
+      itemBuilder: (_, index) => _buildRoomCard(sampleRooms[index]),
     );
   }
 
-  Widget _buildRoomCard(Room room, {IconData? icon}) {
+  Widget _buildRoomCard(Room room) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -159,32 +136,43 @@ class _HotelRoomsScreenState extends State<HotelRoomsScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Room icon or image
-              if (room.images.isNotEmpty)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    room.images.first,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                  ),
-                )
-              else
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    // Replace withOpacity with colorScheme.primaryContainer
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon ?? _getRoomIcon(room.type),
-                    size: 32,
-                    color: colorScheme.primary,
-                  ),
-                ),
+              // Room image or icon
+              room.images.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        room.imageUrl,
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: colorScheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            _getRoomIcon(room.type),
+                            size: 32,
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        _getRoomIcon(room.type),
+                        size: 32,
+                        color: colorScheme.primary,
+                      ),
+                    ),
               
               const SizedBox(width: 16),
               
@@ -194,32 +182,39 @@ class _HotelRoomsScreenState extends State<HotelRoomsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      room.name,
+                      room.type,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    if (room.description != null) Text(
-                      room.description!,
-                      style: const TextStyle(
-                        color: Colors.grey,
-                        fontSize: 14,
+                    if (room.description != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        room.description!,
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         Text(
-                          '\$${room.pricePerNight.toStringAsFixed(0)}/night',
+                          room.formattedPrice,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: colorScheme.primary,
                           ),
                         ),
                         const Spacer(),
-                        _buildActionButtons(room),
+                        _buildAvailabilityIndicator(room),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () => _bookRoom(room),
+                          child: const Text("Book"),
+                        ),
                       ],
                     ),
                   ],
@@ -232,18 +227,22 @@ class _HotelRoomsScreenState extends State<HotelRoomsScreen> {
     );
   }
 
-  Widget _buildActionButtons(Room room) {
+  Widget _buildAvailabilityIndicator(Room room) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        TextButton(
-          onPressed: () => _navigateToRoomDetails(room),
-          child: const Text("Details"),
+        Icon(
+          room.isAvailable ? Icons.check_circle : Icons.cancel,
+          color: room.isAvailable ? Colors.green : Colors.red,
+          size: 16,
         ),
-        const SizedBox(width: 8),
-        ElevatedButton(
-          onPressed: () => _bookRoom(room),
-          child: const Text("Book"),
+        const SizedBox(width: 4),
+        Text(
+          room.isAvailable ? 'Available' : 'Booked',
+          style: TextStyle(
+            color: room.isAvailable ? Colors.green : Colors.red,
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -275,11 +274,20 @@ class _HotelRoomsScreenState extends State<HotelRoomsScreen> {
   }
 
   void _bookRoom(Room room) {
+    final DateTime now = DateTime.now();
+    final DateTime checkIn = now.add(const Duration(days: 1));
+    final DateTime checkOut = now.add(const Duration(days: 2));
+    const int guests = 1;
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        // Fix the BookingScreen constructor to accept room parameter
-        builder: (_) => BookingScreen(room: room),
+        builder: (_) => BookingScreen(
+          room: room,
+          checkIn: checkIn,
+          checkOut: checkOut,
+          guests: guests,
+        ),
       ),
     );
   }

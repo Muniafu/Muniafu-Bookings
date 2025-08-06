@@ -50,6 +50,7 @@ class _MonthlyTrendChartState extends State<MonthlyTrendChart> {
 
     setState(() => _loading = false);
   }
+  
 
   @override
   Widget build(BuildContext context) {

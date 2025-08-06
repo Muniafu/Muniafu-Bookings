@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../providers/booking_provider.dart';
 import '../payment_screen.dart';
 
 class PaymentFormWidget extends StatefulWidget {
   final String roomId;
-  const PaymentFormWidget({super.key, required this.roomId});
+  final int amount;
+  final VoidCallback onPaymentSuccess;
+
+  const PaymentFormWidget({
+    super.key, 
+    required this.roomId,
+    required this.amount,
+    required this.onPaymentSuccess,
+    
+  });
 
   @override
   State<PaymentFormWidget> createState() => _PaymentFormWidgetState();
@@ -17,14 +24,16 @@ class _PaymentFormWidgetState extends State<PaymentFormWidget> {
   final TextEditingController _expiry = TextEditingController();
   final TextEditingController _cvv = TextEditingController();
 
-  bool _isSubmitting = false;
-
   void _mockSubmitPayment() {
     if (_formKey.currentState!.validate()) {
+      widget.onPaymentSuccess();
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => PaymentProcessingScreen(roomId: widget.roomId),
+          builder: (_) => PaymentProcessingScreen(
+            roomId: widget.roomId,
+            amount: widget.amount,
+          ),
         ),
       );
     }

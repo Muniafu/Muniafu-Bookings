@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:muniafu/providers/auth_provider.dart';
-import 'package:muniafu/app/core/widgets/background_widget.dart';
-import 'package:muniafu/app/core/widgets/button_widget.dart';
-import 'package:muniafu/app/core/widgets/logo_widget.dart';
-import 'package:muniafu/features/dashboard/dashboard_screen.dart';
-import './forget_password_screen.dart';
-import './signup_screen.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../app/core/widgets/background_widget.dart';
+import '../../../app/core/widgets/button_widget.dart';
+import '../../../app/core/widgets/logo_widget.dart';
+import '../../dashboard/dashboard_screen.dart';
+import 'forget_password_screen.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -55,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       // Clear error after showing
       authProvider.clearError();
-    } else {
+    } else if (authProvider.isAuthenticated) {
       // Navigate to dashboard on success
       Navigator.pushReplacement(
         context,
@@ -66,7 +66,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
     return Scaffold(
+      appBar: AppBar(title: const Text('Login')),
       body: BackgroundWidget(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -76,9 +79,9 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
                   const LogoWidget(imagePath: './assets/images/login.png'),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
                   Text(
                     'Welcome Back',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -91,15 +94,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Sign in to continue',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
                   _buildEmailField(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildPasswordField(),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   _buildForgotPassword(context),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 24),
+                  if (authProvider.error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Text(
+                        authProvider.error!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
                   _buildLoginButton(context),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildSignupOption(context),
                 ],
               ),
@@ -190,16 +201,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildLoginButton(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    
     return ButtonWidget(
       text: 'Login',
-      isLoading: authProvider.isLoading,
-      onPressed: () {
-        if (!authProvider.isLoading) {
-          _handleLogin(context);
-        }
-      },
+      isLoading: context.watch<AuthProvider>().isLoading,
+      onPressed: () => _handleLogin(context),
     );
   }
 
@@ -209,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         const Text("Don't have an account?"),
         TextButton(
-          onPressed: () => Navigator.push(
+          onPressed: () => Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const SignupScreen()),
           ),

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:muniafu/providers/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import '../../providers/hotel_provider.dart';
-import '../../providers/user_provider.dart';
 import '../../data/models/hotel.dart';
 import 'hotel_rooms_screen.dart';
 import 'booking_screen.dart';
@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen> {
           slivers: [
             // AppBar with search
             SliverAppBar(
-              expandedHeight: 120.0,
+              expandedHeight: 116.0,
               floating: true,
               pinned: true,
               flexibleSpace: FlexibleSpaceBar(
@@ -92,25 +92,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
               bottom: PreferredSize(
-                preferredSize: const Size.fromHeight(60),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: _handleSearch,
-                    decoration: InputDecoration(
-                      hintText: 'Search destinations, hotels...',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: theme.cardColor,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(30),
-                        borderSide: BorderSide.none,
+                preferredSize: const Size.fromHeight(70),
+                child: SizedBox(
+                  height: 48,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: _handleSearch,
+                      decoration: InputDecoration(
+                        hintText: 'Search destinations, hotels...',
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: theme.cardColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(30),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: EdgeInsets.zero,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
                     ),
                   ),
-                ),
+                )
               ),
             ),
             
@@ -147,13 +150,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildWelcomeSection(ThemeData theme) {
+    final user = context.watch<AuthProvider>().currentUser;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Find Your Perfect Stay',
+            user != null ? 'Welcome, ${user.name}' : 'Find Your Perfect Stay',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
             ),
@@ -471,20 +475,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      hotel.location ?? '',
+                      hotel.location,
                       style: const TextStyle(
                         color: Colors.grey,
                         fontSize: 14,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    if (hotel.rating != null) 
-                      RatingWidget(rating: hotel.rating!),
+                    RatingWidget(rating: hotel.rating),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         Text(
-                          '\$${(hotel.pricePerNight ?? 0).toStringAsFixed(0)}/night',
+                          '\$${(hotel.pricePerNight).toStringAsFixed(0)}/night',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.primary,
@@ -575,7 +578,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => BookingScreen(room: specialOfferRoom),
+                            builder: (_) => BookingScreen(
+                              room: specialOfferRoom,
+                              checkIn: DateTime.now().add(const Duration(days: 3)),
+                              checkOut: DateTime.now().add(const Duration(days: 5)),
+                              guests: 2,
+                            ),
                           ),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

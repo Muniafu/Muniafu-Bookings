@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:muniafu/providers/admin_provider.dart';
 import 'package:muniafu/app/core/widgets/background_widget.dart';
+import '../../dashboard/admin_analytics_screen.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -25,6 +26,12 @@ class _AdminScreenState extends State<AdminScreen> {
       screen: const BookingManagementScreen(),
     ),
     AdminDashboardItem(
+      title: 'Analytics',
+      icon: Icons.analytics,
+      color: Colors.amber,
+      screen: const AdminAnalyticsScreen(),
+    ),
+    AdminDashboardItem(
       title: 'Users',
       icon: Icons.people,
       color: Colors.orange,
@@ -38,21 +45,50 @@ class _AdminScreenState extends State<AdminScreen> {
     ),
   ];
 
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AdminProvider>().loadDashboardData();
+      final provider = context.read<AdminProvider>();
+      if (provider.isAdmin) {
+        provider.loadDashboardData();
+      }
     });
   }
 
   @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<AdminProvider>(context);
+
+    // Show Login screen if not authenticated
+    if (!provider.isAdmin) {
+      return _buildLoginScreen(provider);
+    }
+
+    // Show admin dashboard if authenticated
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
         centerTitle: true,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => provider.logout(),
+            tooltip: 'Logout',
+          ),
+        ],
       ),
       body: BackgroundWidget(
         child: Padding(
@@ -68,6 +104,90 @@ class _AdminScreenState extends State<AdminScreen> {
         ),
       ),
     );
+  }
+
+
+  Widget _buildLoginScreen(AdminProvider provider) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Admin Login')),
+      body: BackgroundWidget(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Center(
+            child: SingleChildScrollView(
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.admin_panel_settings, size: 80, color: Colors.blue),
+                    const SizedBox(height: 30),
+                    const Text(
+                      'Admin Portal',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 30),
+                    TextFormField(
+                      controller: _emailController,
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        prefixIcon: Icon(Icons.email),
+                      ),
+                      validator: (val) => val!.isEmpty ? 'Enter email' : null,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: Icon(Icons.lock),
+                      ),
+                      validator: (val) => val!.isEmpty ? 'Enter password' : null,
+                    ),
+                    const SizedBox(height: 24),
+                    if (provider.error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Text(
+                          provider.error!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: provider.isLoading
+                            ? null
+                            : () => _handleLogin(provider),
+                        child: provider.isLoading
+                            ? const CircularProgressIndicator()
+                            : const Text('LOGIN AS ADMIN'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _handleLogin(AdminProvider provider) async {
+    if (_formKey.currentState!.validate()) {
+      await provider.login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+      
+      if (provider.isAdmin) {
+        await provider.loadDashboardData();
+      }
+    }
   }
 
   Widget _buildHeader(BuildContext context) {

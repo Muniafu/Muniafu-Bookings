@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:muniafu/data/services/auth_service.dart';
 import 'package:provider/provider.dart';
-import 'package:muniafu/providers/auth_provider.dart';
-import 'package:muniafu/app/core/widgets/background_widget.dart';
-import 'package:muniafu/app/core/widgets/button_widget.dart';
-import 'package:muniafu/app/core/widgets/logo_widget.dart';
-import 'package:muniafu/features/authentication/screens/login_screen.dart';
+import '../../../data/services/auth_service.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../app/core/widgets/background_widget.dart';
+import '../../../app/core/widgets/button_widget.dart';
+import '../../../app/core/widgets/logo_widget.dart';
+import 'login_screen.dart';
 
 class ForgetPasswordScreen extends StatefulWidget {
   const ForgetPasswordScreen({super.key});
@@ -18,6 +18,7 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   bool _isSuccess = false;
+  String? _message;
 
   @override
   void dispose() {
@@ -32,11 +33,15 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
     FocusScope.of(context).unfocus(); // Dismiss keyboard
     
     try {
-      await authProvider.sendPasswordResetEmail(
-        _emailController.text.trim(),
-      );
+      await authProvider.resetPassword(_emailController.text.trim());
       
-      // Show success message
+      // Show success feedback
+      setState(() {
+        _isSuccess = true;
+        _message = 'Password reset link sent to your email';
+      });
+      
+      // Show snackbar
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Password reset link sent to your email'),
@@ -44,11 +49,14 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
         ),
       );
       
-      setState(() => _isSuccess = true);
-      
       // Auto-navigate back after success
       Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) Navigator.pop(context);
+        if (mounted) {
+          Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+        }
       });
     } catch (e) {
       // Show error in snackbar
@@ -63,7 +71,9 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
+      appBar: AppBar(title: const Text('Reset Password')),
       body: BackgroundWidget(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -73,9 +83,9 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
                   const LogoWidget(imagePath: './assets/images/forget.png'),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
                   Text(
                     _isSuccess ? 'Check Your Email' : 'Reset Password',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -87,6 +97,14 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
                   _isSuccess 
                     ? _buildSuccessContent()
                     : _buildResetForm(context),
+                  if (_message != null && !_isSuccess)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text(
+                        _message!,
+                        style: const TextStyle(color: Colors.green),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -125,8 +143,6 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
   }
 
   Widget _buildResetForm(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    
     return Column(
       children: [
         const SizedBox(height: 10),
@@ -138,15 +154,15 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
             color: Colors.grey[700],
           ),
         ),
-        const SizedBox(height: 30),
+        const SizedBox(height: 20),
         _buildEmailField(),
-        const SizedBox(height: 30),
+        const SizedBox(height: 24),
         ButtonWidget(
           text: 'Send Reset Link',
-          isLoading: authProvider.isLoading,
-          onPressed: authProvider.isLoading ? null : () => _handleResetPassword(context),
+          isLoading: context.watch<AuthProvider>().isLoading,
+          onPressed: () => _handleResetPassword(context),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         TextButton(
           onPressed: () => Navigator.pushReplacement(
             context,

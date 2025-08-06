@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:muniafu/providers/auth_provider.dart';
-import 'package:muniafu/app/core/widgets/background_widget.dart';
-import 'package:muniafu/app/core/widgets/button_widget.dart';
-import 'package:muniafu/app/core/widgets/logo_widget.dart';
-import 'package:muniafu/features/dashboard/dashboard_screen.dart';
-import 'package:muniafu/features/authentication/screens/login_screen.dart';
+import '../../../providers/auth_provider.dart';
+import '../screens/login_screen.dart';
+import '../../dashboard/dashboard_screen.dart';
+import '../../../app/core/widgets/background_widget.dart';
+import '../../../app/core/widgets/button_widget.dart';
+import '../../../app/core/widgets/logo_widget.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -20,6 +20,7 @@ class _SignupScreenState extends State<SignupScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _passwordVisible = false;
   bool _confirmPasswordVisible = false;
 
@@ -36,6 +37,7 @@ class _SignupScreenState extends State<SignupScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -55,29 +57,27 @@ class _SignupScreenState extends State<SignupScreen> {
     final authProvider = context.read<AuthProvider>();
     FocusScope.of(context).unfocus(); // Dismiss keyboard
     
-    await authProvider.register(
+    await authProvider.signUp(
       email: _emailController.text.trim(),
       password: _passwordController.text.trim(),
       name: _nameController.text.trim(),
+      fullName: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
     );
 
     if (authProvider.error != null) {
-      // Show error in snackbar
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(authProvider.error!),
           backgroundColor: Colors.red,
         ),
       );
-      // Clear error after showing
       authProvider.clearError();
-    } else {
-      // Navigate to dashboard on success
+    } else if (authProvider.isAuthenticated) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const DashboardScreen()),
       );
-      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Account created successfully!'),
@@ -89,7 +89,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
     return Scaffold(
+      appBar: AppBar(title: const Text('Sign Up')),
       body: BackgroundWidget(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -97,11 +100,10 @@ class _SignupScreenState extends State<SignupScreen> {
             key: _formKey,
             child: SingleChildScrollView(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
                   const LogoWidget(imagePath: './assets/images/signup.png'),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
                   Text(
                     'Create Account',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
@@ -114,17 +116,27 @@ class _SignupScreenState extends State<SignupScreen> {
                     'Join our community today',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 20),
                   _buildNameField(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  _buildPhoneField(),
+                  const SizedBox(height: 16),
                   _buildEmailField(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildPasswordField(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildConfirmPasswordField(),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 24),
+                  if (authProvider.error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Text(
+                        authProvider.error!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
                   _buildSignupButton(context),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   _buildLoginOption(context),
                 ],
               ),
@@ -153,6 +165,28 @@ class _SignupScreenState extends State<SignupScreen> {
         }
         if (value.length < 3) {
           return 'Name must be at least 3 characters';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPhoneField() {
+    return TextFormField(
+      controller: _phoneController,
+      decoration: InputDecoration(
+        labelText: 'Phone Number',
+        prefixIcon: const Icon(Icons.phone),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        filled: true,
+      ),
+      keyboardType: TextInputType.phone,
+      textInputAction: TextInputAction.next,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter your phone number';
         }
         return null;
       },
@@ -246,6 +280,9 @@ class _SignupScreenState extends State<SignupScreen> {
         if (value == null || value.isEmpty) {
           return 'Please confirm your password';
         }
+        if (value != _passwordController.text) {
+          return 'Passwords do not match';
+        }
         return null;
       },
       onFieldSubmitted: (_) => _handleSignup(context),
@@ -253,12 +290,12 @@ class _SignupScreenState extends State<SignupScreen> {
   }
 
   Widget _buildSignupButton(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-    
     return ButtonWidget(
       text: 'Create Account',
-      isLoading: authProvider.isLoading,
-      onPressed: authProvider.isLoading ? null : () => _handleSignup(context),
+      isLoading: context.watch<AuthProvider>().isLoading,
+      onPressed: context.read<AuthProvider>().isLoading 
+          ? null 
+          : () => _handleSignup(context),
     );
   }
 
@@ -268,7 +305,7 @@ class _SignupScreenState extends State<SignupScreen> {
       children: [
         const Text("Already have an account?"),
         TextButton(
-          onPressed: () => Navigator.push(
+          onPressed: () => Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const LoginScreen()),
           ),
