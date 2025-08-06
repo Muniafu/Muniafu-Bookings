@@ -56,12 +56,15 @@ class AuthService {
     await _prefs.remove('auth_token');
   }
 
-  // Firebase Authentication ==============================================
+  // Authentication Methods ==============================================
 
-  Future<User> registerWithEmail({
+  // Register with email and password
+  Future<User> signUp({
     required String email,
     required String password,
     required String name,
+    String? fullName,
+    String? phone,
     String role = 'user',
   }) async {
     try {
@@ -75,6 +78,8 @@ class AuthService {
         uid: user.uid,
         email: email,
         name: name,
+        fullName: fullName ?? name,
+        phone: phone,
         role: role,
       );
 
@@ -90,7 +95,8 @@ class AuthService {
     }
   }
 
-  Future<User> loginWithEmail(String email, String password) async {
+  // Login with email and password
+  Future<User> login(String email, String password) async {
     try {
       final userCredential = await _firebaseAuth.signInWithEmailAndPassword(
         email: email,
@@ -111,7 +117,8 @@ class AuthService {
     }
   }
 
-  Future<void> sendPasswordResetEmail(String email) async {
+  // Send password reset email
+  Future<void> resetPassword(String email) async {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email);
     } on firebase_auth.FirebaseAuthException catch (e) {
@@ -121,6 +128,7 @@ class AuthService {
     }
   }
 
+  // Logout user
   Future<void> logout() async {
     try {
       await _firebaseAuth.signOut();
@@ -130,6 +138,7 @@ class AuthService {
     }
   }
 
+  // Get current authenticated user
   Future<User?> getCurrentUser() async {
     try {
       final firebaseUser = _firebaseAuth.currentUser;
@@ -140,10 +149,10 @@ class AuthService {
     }
   }
 
+  // Get user by UID
   Future<User> getUser(String uid) async {
     try {
       final userDoc = await _userCollection.doc(uid).get(
-
         // Enable offline persistence
         const GetOptions(source: Source.serverAndCache)
       );
@@ -152,7 +161,6 @@ class AuthService {
       return User.fromFirestore(userDoc);
     } on FirebaseException catch (e) {
       if (e.code == 'unavailable') {
-
         // Try to get cached data
         final cachedDoc = await _userCollection.doc(uid).get(
           const GetOptions(source: Source.cache)
@@ -171,6 +179,7 @@ class AuthService {
     }
   }
 
+  // Update user role
   Future<void> updateUserRole(String uid, String newRole) async {
     try {
       await _userCollection.doc(uid).update({
@@ -179,6 +188,36 @@ class AuthService {
       });
     } catch (e) {
       throw AuthException('Failed to update user role: ${e.toString()}');
+    }
+  }
+
+  // Profile Update Methods
+  Future<void> updateProfile({
+    required String uid,
+    String? fullName,
+    String? phone,
+    String? photoUrl,
+    String? bio,
+    String? location,
+  }) async {
+    try {
+      final updates = <String, dynamic> {
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (fullName != null) updates['fullName'] = fullName;
+      if (phone != null) updates['phone'] = phone;
+      if (photoUrl != null) updates['photoUrl'] = photoUrl;
+      if (bio != null) updates['bio'] = bio;
+      if (location != null) updates['location'] = location;
+
+      if (updates.isNotEmpty) {
+        await _userCollection.doc(uid).update(updates);
+      }
+    } on FirebaseException catch (e) {
+      throw AuthException('Failed to update profile: ${e.message}');
+    } catch (e) {
+      throw AuthException('Profile update failed: ${e.toString()}');
     }
   }
 
@@ -239,12 +278,16 @@ class AuthService {
     required String uid,
     required String email,
     required String name,
+    String? fullName,
+    String? phone,
     required String role,
   }) async {
     await _userCollection.doc(uid).set({
       'id': uid,
       'email': email,
       'name': name,
+      'fullName': fullName ?? name,
+      'phone': phone,
       'role': role,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),

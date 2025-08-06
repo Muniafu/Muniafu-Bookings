@@ -132,7 +132,7 @@ class UserService {
 
   Future<void> _createFirestoreUser(User user) async {
     try {
-      await _userCollection!.doc(user.id).set(user.toFirestore());
+      await _userCollection!.doc(user.uid).set(user.toFirestore());
     } catch (e) {
       throw UserServiceException('Firestore create failed: ${e.toString()}');
     }
@@ -170,7 +170,7 @@ class UserService {
 
   Future<void> _updateFirestoreUserModel(User user) async {
     try {
-      await _userCollection!.doc(user.id).set(user.toFirestore());
+      await _userCollection!.doc(user.uid).set(user.toFirestore());
     } catch (e) {
       throw UserServiceException('Failed to update user: ${e.toString()}');
     }

@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:muniafu/data/models/hotel.dart';
-import 'package:muniafu/data/models/room.dart';
+import '../models/hotel.dart';
+import '../models/room.dart';
 
 class HotelService {
   final String? _baseUrl;
@@ -60,10 +60,22 @@ class HotelService {
     try {
       final QuerySnapshot snapshot = await _hotelCollection!.get();
       return snapshot.docs
-          .map((doc) => Hotel.fromJson(doc.data() as Map<String, dynamic>))
+          .map((doc) => Hotel.fromFirestore(doc))
           .toList();
     } catch (e) {
       throw HotelServiceException('Failed to fetch hotels: ${e.toString()}');
+    }
+  }
+
+  Future<List<Hotel>> _searchFirestoreHotels(String queryText) async {
+    try {
+      final query = await _hotelCollection!
+          .where('name', isGreaterThanOrEqualTo: queryText)
+          .where('name', isLessThanOrEqualTo: queryText + '\uf8ff')
+          .get();
+      return query.docs.map((doc) => Hotel.fromFirestore(doc)).toList();
+    } catch (e) {
+      throw HotelServiceException('Failed to search hotels: ${e.toString()}');
     }
   }
 
@@ -77,6 +89,9 @@ class HotelService {
   Future<List<Hotel>> searchHotels(String query) async {
     if (isHttpMode) {
       return _fetchHttpHotels('/hotels/search?q=$query');
+    }
+    if (isFirestoreMode) {
+      return _searchFirestoreHotels(query);
     }
     throw _unsupportedError('searchHotels');
   }
@@ -115,7 +130,7 @@ class HotelService {
   Future<void> createHotel(Hotel hotel) async {
     if (isFirestoreMode) {
       try {
-        await _hotelCollection!.doc(hotel.id).set(hotel.toJson());
+        await _hotelCollection!.doc(hotel.id).set(hotel.toMap());
       } catch (e) {
         throw HotelServiceException('Failed to create hotel: ${e.toString()}');
       }
@@ -129,7 +144,7 @@ class HotelService {
       try {
         final DocumentSnapshot snapshot = await _hotelCollection!.doc(id).get();
         return snapshot.exists
-            ? Hotel.fromJson(snapshot.data() as Map<String, dynamic>)
+            ? Hotel.fromFirestore(snapshot)
             : null;
       } catch (e) {
         throw HotelServiceException('Failed to get hotel: ${e.toString()}');
@@ -154,7 +169,7 @@ class HotelService {
   Future<void> updateHotel(Hotel hotel) async {
     if (isFirestoreMode) {
       try {
-        await _hotelCollection!.doc(hotel.id).update(hotel.toJson());
+        await _hotelCollection!.doc(hotel.id).update(hotel.toMap());
       } catch (e) {
         throw HotelServiceException('Failed to update hotel: ${e.toString()}');
       }
@@ -194,7 +209,6 @@ class HotelService {
   // Helper methods
   UnsupportedError _unsupportedError(String method) => UnsupportedError(
       '$method is not supported in ${isHttpMode ? 'HTTP' : 'Firestore'} mode');
-
 }
 
 class HotelServiceException implements Exception {
