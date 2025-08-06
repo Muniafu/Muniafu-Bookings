@@ -2,16 +2,24 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:muniafu/features/authentication/screens/admin_screen.dart';
+import 'package:muniafu/firebase_options.dart';
+import 'package:provider/provider.dart';
+
 import 'package:muniafu/data/services/admin_service.dart';
 import 'package:muniafu/data/services/auth_service.dart';
 import 'package:muniafu/data/services/booking_service.dart';
 import 'package:muniafu/data/services/hotel_service.dart';
 import 'package:muniafu/data/services/user_service.dart';
+
+import 'package:muniafu/features/dashboard/admin_analytics_screen.dart';
+import 'package:muniafu/features/dashboard/manage_bookings_screen.dart';
 import 'package:muniafu/features/home/hotel_rooms_screen.dart';
+import 'package:muniafu/features/home/my_bookings_screen.dart';
 import 'package:muniafu/features/home/profile_screen.dart';
-import 'package:muniafu/firebase_options.dart';
+import 'package:muniafu/features/authentication/screens/forget_password_screen.dart';
+
 import 'package:muniafu/providers/payment_provider.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 //import 'package:flutter_stripe/flutter_stripe.dart';
 
@@ -59,13 +67,13 @@ void main() async{
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AdminProvider(AdminService())),
-        ChangeNotifierProvider(create: (_) => AuthProvider(AuthService(
+        ChangeNotifierProvider(create: (_) => AuthProvider(authService: AuthService(
           firebaseAuth: firebase_auth.FirebaseAuth.instance,
           firestore: firestore,
           prefs: prefs,
         ))),
         ChangeNotifierProvider(create: (_) => BookingProvider(BookingService())),
-        ChangeNotifierProvider(create: (_) => HotelProvider(HotelService.firestore())),
+        ChangeNotifierProvider(create: (_) => HotelProvider(hotelService: HotelService.firestore())),
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
         ChangeNotifierProvider(create: (context) => UserProvider(UserService.firestore())),
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
@@ -94,13 +102,17 @@ class MyApp extends StatelessWidget {
         '/welcome': (context) =>  const WelcomeScreen(),
         '/signup': (context) => const SignupScreen(),
         '/login': (context) => const LoginScreen(),
+        '/forgot-password': (context) => const ForgetPasswordScreen(),
         '/home': (context) => const HomeScreen(),
         '/hotel-rooms': (context) => const HotelRoomsScreen(),
         '/bookings': (context) => const BookingScreen(),
+        '/my-bookings': (context) => const MyBookingsScreen(),
+        '/admin': (context) => const AdminScreen(),
+        '/admin/bookings': (context) => const ManageBookingsScreen(),
+        '/admin/analytics': (context) => const AdminAnalyticsScreen(),
         '/dashboard': (context) => const DashboardScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/search': (context) => const SearchScreen(),
-        '/onboarding': (context) => const OnboardingScreen(),
       },
     );
   }
