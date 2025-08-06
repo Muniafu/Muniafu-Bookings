@@ -82,7 +82,7 @@ class UserProvider with ChangeNotifier {
       if (birthDate != null) updates['birthDate'] = birthDate;
       
       // Apply updates
-      await _service.updateProfile(_user!.id, updates);
+      await _service.updateProfile(_user!.uid, updates);
       
       // Update local user
       _user = _user!.copyWith(
@@ -134,7 +134,7 @@ class UserProvider with ChangeNotifier {
       _setLoading(true);
       _clearMessages();
       
-      await _service.changePassword(_user!.id, newPassword);
+      await _service.changePassword(_user!.uid, newPassword);
       _successMessage = 'Password changed successfully';
     } catch (e) {
       _error = 'Failed to change password: ${e.toString()}';
@@ -152,7 +152,7 @@ class UserProvider with ChangeNotifier {
       _setLoading(true);
       _clearMessages();
       
-      await _service.verifyEmail(_user!.id);
+      await _service.verifyEmail(_user!.uid);
       _user = _user!.copyWith(emailVerified: true);
       _successMessage = 'Verification email sent';
     } catch (e) {
@@ -174,7 +174,7 @@ class UserProvider with ChangeNotifier {
   // Refresh user data
   Future<void> refreshUser() async {
     if (_user != null) {
-      await fetchProfile(_user!.id);
+      await fetchProfile(_user!.uid);
     }
   }
   

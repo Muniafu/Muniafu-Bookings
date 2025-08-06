@@ -2,9 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../data/models/hotel.dart';
 import '../data/models/room.dart';
-import 'package:muniafu/data/services/hotel_service.dart';
+import '../data/services/hotel_service.dart';
 
-class HotelProvider extends ChangeNotifier {
+class HotelProvider with ChangeNotifier {
   final HotelService _hotelService;
   
   // State properties
@@ -23,7 +23,8 @@ class HotelProvider extends ChangeNotifier {
   String? get error => _error;
   String get searchQuery => _searchQuery;
 
-  HotelProvider(this._hotelService);
+  HotelProvider({HotelService? hotelService}) 
+    : _hotelService = hotelService ?? HotelService.firestore();
 
   // Load all hotels with error handling
   Future<void> loadHotels() async {
@@ -97,7 +98,7 @@ class HotelProvider extends ChangeNotifier {
       
       if (hotel.id.isEmpty) {
         // New hotel - add to Firestore
-        await _hotelService.addHotel(hotel.toJson());
+        await _hotelService.createHotel(hotel);
       } else {
         // Existing hotel - update
         await _hotelService.updateHotel(hotel);
@@ -165,7 +166,6 @@ class HotelProvider extends ChangeNotifier {
         rating: 4.0,
         pricePerNight: 180,
       ),
-      // Add other demo hotels as needed
     ];
   }
 
