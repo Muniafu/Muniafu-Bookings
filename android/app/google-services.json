@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "848175632202",
+    "firebase_url": "https://elam-muniafu-default-rtdb.firebaseio.com",
     "project_id": "elam-muniafu",
     "storage_bucket": "elam-muniafu.firebasestorage.app"
   },
