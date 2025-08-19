@@ -1,42 +1,60 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:muniafu/data/services/payment_service.dart';
+
+import '../models/payment_model.dart';
+import '../services/payment_service.dart';
 
 class PaymentProvider with ChangeNotifier {
-  bool _isProcessing = false;
-  bool get isProcessing => _isProcessing;
+  final PaymentService _paymentService;
+  PaymentModel? _currentPayment;
+  bool _isLoading = false;
+  String? _error;
 
-  Future<void> processPayment({
-    required int amount,
-    required String currency,
+  PaymentProvider(this._paymentService);
+
+  PaymentModel? get currentPayment => _currentPayment;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  Future<void> initializePayment({
     required BuildContext context,
+    required String userId,
+    required String bookingId,
+    required double amount,
+    required String email,
+    String? phone,
   }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
     try {
-      _isProcessing = true;
-      notifyListeners();
-
-      // 1. Create Payment Intent
-      final clientSecret = await PaymentService.createPaymentIntent(
+      _currentPayment = await _paymentService.initializePayment(
+        context: context,
+        userId: userId,
+        bookingId: bookingId,
         amount: amount,
-        currency: currency,
+        email: email,
+        phone: phone, checkoutMethod: '',
       );
-
-      // 2. Initialize Payment Sheet
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: clientSecret,
-          merchantDisplayName: 'Booking App',
-        ),
-      );
-
-      // 3. Display Payment Sheet
-      await Stripe.instance.presentPaymentSheet();
-
-      // 4. Confirm Payment Success
     } catch (e) {
-      rethrow;
+      _error = 'Payment error: $e';
     } finally {
-      _isProcessing = false;
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<List<PaymentModel>> getAdminPayments() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      return await _paymentService.getPaymentsForAdmin();
+    } catch (e) {
+      _error = 'Failed to load payments: ${e.toString()}';
+      return [];
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }

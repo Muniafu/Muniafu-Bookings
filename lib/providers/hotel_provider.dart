@@ -1,183 +1,231 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import '../data/models/hotel.dart';
-import '../data/models/room.dart';
-import '../data/services/hotel_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/hotel_model.dart';
+import '../models/room_model.dart';
+import '../services/hotel_service.dart';
 
-class HotelProvider with ChangeNotifier {
-  final HotelService _hotelService;
+class HotelProvider extends ChangeNotifier {
+  final HotelService _hotelService = HotelService();
+
+  final Map<String, HotelModel> _hotelCache = {};
+  final Map<String, List<RoomModel>> _roomCache = {};
   
-  // State properties
-  List<Hotel> _allHotels = [];
-  List<Hotel> _displayedHotels = [];
-  List<Room> _rooms = [];
-  String _searchQuery = '';
-  Timer? _debounce;
+  final List<Map<String, dynamic>> _bookings = [];
+
+  final List<HotelModel> _hotels = [];
+  List<HotelModel> get hotels => List.unmodifiable(_hotels);
+
+  List<RoomModel> _rooms = [];
+  List<RoomModel> get rooms => _rooms;
+
   bool _isLoading = false;
-  String? _error;
-
-  // Getters
-  List<Hotel> get hotels => _displayedHotels;
-  List<Room> get rooms => _rooms;
   bool get isLoading => _isLoading;
-  String? get error => _error;
-  String get searchQuery => _searchQuery;
 
-  HotelProvider({HotelService? hotelService}) 
-    : _hotelService = hotelService ?? HotelService.firestore();
+  bool _hasMore = true;
+  bool get hasMore => _hasMore;
 
-  // Load all hotels with error handling
-  Future<void> loadHotels() async {
-    try {
-      _setLoading(true);
-      _error = null;
-      
-      _allHotels = await _hotelService.fetchHotels();
-      _applySearchFilter();  // Re-apply existing search filter
-    } catch (e) {
-      _error = 'Failed to load hotels: ${e.toString()}';
-      _allHotels = _getDemoHotels();
-      _applySearchFilter();
-    } finally {
-      _setLoading(false);
+  DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
+  final int _pageSize = 10;
+
+  String _search = '';
+
+  HotelProvider() {
+    // initial load
+    fetchHotels(refresh: true);
+    _loadMockHotels();
+  }
+
+  Future<HotelModel?> getHotelById(String id, {bool forceRefresh = false}) async {
+    if (!forceRefresh && _hotelCache.containsKey(id)) {
+      return _hotelCache[id];
     }
-  }
 
-  // Search hotels with debounce and fallback
-  void searchHotels(String query) {
-    _searchQuery = query;
-    
-    // Cancel previous debounce timer
-    _debounce?.cancel();
-    
-    // Set up new debounce timer
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      if (_searchQuery.isEmpty) {
-        _applySearchFilter();
-        return;
-      }
-
-      try {
-        // Attempt remote search
-        _setLoading(true);
-        _hotelService.searchHotels(_searchQuery).then((results) {
-          _displayedHotels = results;
-          notifyListeners();
-        }).catchError((e) {
-          // Fallback to local search if remote fails
-          _applySearchFilter();
-        }).whenComplete(() => _setLoading(false));
-      } catch (e) {
-        // Fallback to local search on error
-        _applySearchFilter();
-        _setLoading(false);
-      }
-    });
-  }
-
-  // Load rooms for a specific hotel
-  Future<void> loadRooms(String hotelId) async {
-    try {
-      _setLoading(true);
-      _error = null;
-      
-      _rooms = await _hotelService.fetchRooms(hotelId);
-    } catch (e) {
-      _error = 'Failed to load rooms: ${e.toString()}';
-      _rooms = [];
-    } finally {
-      _setLoading(false);
+    final hotel = await _hotelService.getHotelById(id);
+    if (hotel != null) {
+      _hotelCache[id] = hotel;
     }
+    return hotel;
   }
 
-  // Save hotel (create or update)
-  Future<void> saveHotel(Hotel hotel) async {
-    try {
-      _setLoading(true);
-      _error = null;
-      
-      if (hotel.id.isEmpty) {
-        // New hotel - add to Firestore
-        await _hotelService.createHotel(hotel);
-      } else {
-        // Existing hotel - update
-        await _hotelService.updateHotel(hotel);
-      }
-      
-      await loadHotels();  // Refresh hotel list
-    } catch (e) {
-      _error = 'Failed to save hotel: ${e.toString()}';
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
+  List<Map<String, dynamic>> get bookings => _bookings;
 
-  // Delete a hotel
-  Future<void> deleteHotel(String hotelId) async {
-    try {
-      _setLoading(true);
-      _error = null;
-      
-      await _hotelService.deleteHotel(hotelId);
-      await loadHotels();  // Refresh hotel list
-    } catch (e) {
-      _error = 'Failed to delete hotel: ${e.toString()}';
-      rethrow;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Apply search filter locally
-  void _applySearchFilter() {
-    if (_searchQuery.isEmpty) {
-      _displayedHotels = _allHotels;
-    } else {
-      _displayedHotels = _allHotels.where((hotel) => 
-        hotel.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        (hotel.location.toLowerCase().contains(_searchQuery.toLowerCase())) ||
-        (hotel.description.toLowerCase().contains(_searchQuery.toLowerCase()))
-      ).toList();
-    }
-    notifyListeners();
-  }
-
-  // Demo data fallback
-  List<Hotel> _getDemoHotels() {
-    return [
-      Hotel(
+  void _loadMockHotels() {
+    _hotels.clear();
+    _hotels.addAll([
+      HotelModel(
         id: '1',
-        name: 'Hotel Paradise',
-        location: 'Beachfront',
-        description: 'A beautiful paradise hotel by the beach.',
-        images: ['https://example.com/hotel1.jpg'],
-        amenities: ['WiFi', 'Pool', 'Spa'],
-        rating: 4.5,
-        pricePerNight: 200,
+        name: 'Grand Paradise Resort',
+        address: '123 Beachfront Ave, Miami, FL',
+        coordinates: {'lat': 25.7617, 'lng': -80.1918},
+        description: 'Luxury beachfront resort with spa, pool, and fine dining.',
+        amenities: ['Free WiFi', 'Swimming Pool', 'Spa', 'Restaurant'],
+        images: [
+          'https://picsum.photos/seed/hotel1/600/400',
+          'https://picsum.photos/seed/hotel1a/600/400',
+        ],
+        rating: 4.8,
+        isPopular: true,
+        isNew: false,
+        avgPrice: 350.0,
+        basePrice: 300.0,
+        taxRate: 0.12,
+        seoTags: ['beachfront', 'luxury', 'resort'],
+        availableRooms: 12,
+        tags: ['Top Rated', 'Sea View'],
       ),
-      Hotel(
+      HotelModel(
         id: '2',
-        name: 'Ocean View Resort',
-        location: 'Cliffside',
-        description: 'Resort with stunning ocean views.',
-        images: ['https://example.com/hotel2.jpg'],
-        amenities: ['WiFi', 'Restaurant', 'Gym'],
-        rating: 4.0,
-        pricePerNight: 180,
+        name: 'Urban City Hotel',
+        address: '456 Downtown St, New York, NY',
+        coordinates: {'lat': 40.7128, 'lng': -74.0060},
+        description: 'Modern hotel in the heart of the city with skyline views.',
+        amenities: ['Free WiFi', 'Gym', 'Conference Rooms', 'Rooftop Bar'],
+        images: [
+          'https://picsum.photos/seed/hotel2/600/400',
+          'https://picsum.photos/seed/hotel2a/600/400',
+        ],
+        rating: 4.5,
+        isPopular: false,
+        isNew: true,
+        avgPrice: 220.0,
+        basePrice: 200.0,
+        taxRate: 0.1,
+        seoTags: ['city', 'business', 'modern'],
+        availableRooms: 8,
+        tags: ['New Opening', 'Skyline View'],
       ),
-    ];
-  }
+    ]);
 
-  // Set loading state
-  void _setLoading(bool loading) {
-    _isLoading = loading;
+    _isLoading = false;
+    _hasMore = false;
     notifyListeners();
   }
 
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    super.dispose();
+  /// Fetch hotels; paginated via internal _lastDoc cursor.
+  Future<void> fetchHotels({bool refresh = false}) async {
+    if (_isLoading) return;
+
+    if (refresh) {
+      _lastDoc = null;
+      _hasMore = true;
+      _hotels.clear();
+      notifyListeners();
+    }
+
+    if (!_hasMore) return;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final snap = await _hotelService.getHotelsPaginated(
+        startAfter: _lastDoc,
+        limit: _pageSize,
+        searchQuery: _search.isNotEmpty ? _search : null,
+      );
+
+      if (snap.docs.isNotEmpty) {
+        for (final d in snap.docs) {
+          final data = d.data();
+          final model = HotelModel.fromMap(data, id: d.id);
+          // avoid duplicates if refresh was partial
+          if (!_hotels.any((h) => h.id == model.id)) _hotels.add(model);
+        }
+        _lastDoc = snap.docs.last;
+      }
+
+      if (snap.docs.length < _pageSize) _hasMore = false;
+    } catch (e) {
+      debugPrint('fetchHotels error: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  
+  
+  /// Load next page
+  Future<void> loadMore() async {
+    if (_isLoading || !_hasMore) return;
+    await fetchHotels(refresh: false);
+  }
+
+  /// Debounced search trigger can be done in UI; here we simply apply and refresh.
+  Future<void> searchHotels(String query) async {
+    _search = query.trim();
+    // refresh results to apply search
+    _lastDoc = null;
+    _hasMore = true;
+    _hotels.clear();
+    notifyListeners();
+    await fetchHotels(refresh: true);
+  }
+
+  Future<List<RoomModel>> getRoomsByHotel(String hotelId, {bool forceRefresh = false}) async {
+    if(!forceRefresh && _roomCache.containsKey(hotelId)) {
+      return _roomCache[hotelId]!;
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    final rooms = await _hotelService.getRoomsByHotel(hotelId);
+    _roomCache[hotelId] = rooms;
+
+    _isLoading = false;
+    notifyListeners();
+    return rooms;
+  }
+
+  List<HotelModel> get filteredHotels {
+    return _hotels.where((hotel) {
+      // Add your filter logic here
+
+      return true;
+    }).toList();
+  }
+
+  Future<void> prefetchHotelDetails(String hotelId) async {
+    try {
+      // This warms Firestore cache for that doc; the service returns model so UI can get it quickly.
+      await _hotelService.getHotelById(hotelId);
+    } catch (e) {
+      debugPrint('prefetchHotelDetails error: $e');
+    }
+  }
+
+  Future<void> bulkDeleteHotels(List<String> hotelIds) async {
+    for (final id in hotelIds) {
+      await _hotelService.deleteHotel(id);
+    }
+    _hotels.removeWhere((h) => hotelIds.contains(h.id));
+    notifyListeners();
+  }
+
+  Future<void> approveHotel(String hotelId) async {
+    final idx = _hotels.indexWhere((h) => h.id == hotelId);
+    if (idx == -1) return;
+    final h = _hotels[idx];
+    final updated = HotelModel(
+      id: h.id,
+      name: h.name,
+      address: h.address,
+      coordinates: h.coordinates,
+      description: h.description,
+      amenities: h.amenities,
+      images: h.images,
+      rating: h.rating,
+      isPopular: h.isPopular,
+      isNew: false,
+      avgPrice: h.avgPrice,
+      basePrice: h.basePrice,
+      taxRate: h.taxRate,
+      seoTags: h.seoTags,
+      availableRooms: h.availableRooms,
+      tags: h.tags,
+    );
+    await _hotelService.updateHotel(updated);
+    _hotels[idx] = updated;
+    notifyListeners();
   }
 }
