@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/notification_provider.dart';
 
 class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
@@ -17,7 +19,16 @@ class AdminDashboardScreen extends StatelessWidget {
       );
     }
 
+    final notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
+
     final List<_DashboardItem> adminSections = [
+      _DashboardItem(
+        title: 'Send Notification',
+        icon: Icons.notifications_active,
+        color: Colors.redAccent,
+        routeName: '/admin/send-notification',
+        badgeStream: notificationProvider.listenToUnreadNotificationCount(),
+      ),
       _DashboardItem(
         title: 'Manage Properties',
         icon: Icons.home_work,
@@ -94,12 +105,14 @@ class _DashboardItem {
   final IconData icon;
   final Color color;
   final String routeName;
+  final Stream<int>? badgeStream;
 
   _DashboardItem({
     required this.title,
     required this.icon,
     required this.color,
     required this.routeName,
+    this.badgeStream,
   });
 }
 
@@ -110,6 +123,19 @@ class _DashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.badgeStream != null) {
+      return StreamBuilder<int>(
+        stream: item.badgeStream,
+        builder: (context, snapshot) {
+          final count = snapshot.data ?? 0;
+          return _buildCard(context, badgeCount: count);
+        },
+      );
+    }
+    return _buildCard(context);
+  }
+
+  Widget _buildCard(BuildContext context, {int badgeCount = 0}) {
     return GestureDetector(
       onTap: () {
         Navigator.pushNamed(context, item.routeName);
@@ -118,27 +144,49 @@ class _DashboardCard extends StatelessWidget {
         elevation: 4,
         color: item.color.withOpacity(0.1),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Stack(
           children: [
-            CircleAvatar(
-              backgroundColor: item.color,
-              radius: 28,
-              child: Icon(item.icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              item.title,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: item.color.withRed(600),
-                fontWeight: FontWeight.w600,
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircleAvatar(
+                    backgroundColor: item.color,
+                    radius: 28,
+                    child: Icon(item.icon, color: Colors.white, size: 28),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    item.title,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: item.color.withRed(600),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
+            if (badgeCount > 0)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$badgeCount',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
           ],
         ),
-      ),
+      ),    
     );
   }
 }
